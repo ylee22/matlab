@@ -301,17 +301,17 @@ anchored_coords = [];
 % type being anchored
 if iscell(current_trajs_spots)
     if iscell(large_coords)
-        traj_coords = anchoredFrameCoords(large_coords, current_trajs_spots{1}(2:end));
+        [traj_coords, step_sizes] = anchoredFrameCoords(large_coords, current_trajs_spots{1}(2:end));
         anchored_coords = cat(1,anchored_coords,traj_coords);
         anchored_coords = cat(1,anchored_coords,small_coords(current_trajs_spots{2}(2:end),:));
     else
         anchored_coords = cat(1,anchored_coords,large_coords(current_trajs_spots{1}(2:end),:));
-        traj_coords = anchoredFrameCoords(small_coords, current_trajs_spots{2}(2:end));
+        [traj_coords, step_sizes] = anchoredFrameCoords(small_coords, current_trajs_spots{2}(2:end));
         anchored_coords = cat(1,anchored_coords,traj_coords);
     end
 elseif current_trajs_spots(1) == -1
     if iscell(large_coords)
-        traj_coords = anchoredFrameCoords(large_coords, current_trajs_spots(2:end));
+        [traj_coords, step_sizes] = anchoredFrameCoords(large_coords, current_trajs_spots(2:end));
         anchored_coords = cat(1,anchored_coords,traj_coords);
     else
         error('Immobile anchors are not getting filtered')
@@ -319,7 +319,7 @@ elseif current_trajs_spots(1) == -1
     end
 elseif current_trajs_spots(1) == -2
     if iscell(small_coords)
-        traj_coords = anchoredFrameCoords(small_coords, current_trajs_spots(2:end));
+        [traj_coords, step_sizes] = anchoredFrameCoords(small_coords, current_trajs_spots(2:end));
         anchored_coords = cat(1,anchored_coords,traj_coords);
     else
         error('Immobile anchors are not getting filtered')
@@ -327,46 +327,85 @@ elseif current_trajs_spots(1) == -2
     end
 end
 
-% Use kmeans to find two clusters
-[kcluster_idx, kcluster_coords] = kmeans(anchored_coords,2);
-% Find the center coord for a single cluster
-average_coords = mean(anchored_coords);
-% Find the distance from all of the points to the anchor coords
-sum_dist = sum([pdist2(anchored_coords,kcluster_coords(1,:)),pdist2(anchored_coords,kcluster_coords(2,:)),pdist2(anchored_coords,average_coords)]);
-final_anchor_idx = find(sum_dist==min(sum_dist));
-% Find which of the 3 anchor coords fits the data the best
-% If all the frames are nicely clustered, the center becomes the
-% average of all the frames stuck in the anchor
-% If there are outliars, then one of the kcluster_coords fits
-% better
-if final_anchor_idx==1
-    diameter = min(max(anchored_coords(kcluster_idx==1,1))-min(anchored_coords(kcluster_idx==1,1)),max(anchored_coords(kcluster_idx==1,2))-min(anchored_coords(kcluster_idx==1,2)));
-    radius_and_coords = [diameter/2, kcluster_coords(1,:)];
-% If there are outliars, define the center as the mean of the
-% bigger cluster
-elseif final_anchor_idx==2
-    diameter = min(max(anchored_coords(kcluster_idx==2,1))-min(anchored_coords(kcluster_idx==2,1)),max(anchored_coords(kcluster_idx==2,2))-min(anchored_coords(kcluster_idx==2,2)));
-    radius_and_coords = [diameter/2, kcluster_coords(2,:)];
-elseif final_anchor_idx==3
-    diameter = min(max(anchored_coords(:,1))-min(anchored_coords(:,1)),max(anchored_coords(:,2))-min(anchored_coords(:,2)));
-    radius_and_coords = [diameter/2, average_coords];
-end
-    %             figure
-%             plot(anchored_coords(:,1),anchored_coords(:,2))
-%             hold on;
-%             scatter(combined_coords(anchor_idx,2),combined_coords(anchor_idx,3))
-%             ang=0:0.01:2*pi;
-%             anchor_radius=combined_coords(anchor_idx,1);
-%             xp=anchor_radius*cos(ang);
-%             yp=anchor_radius*sin(ang);
-%             plot(combined_coords(anchor_idx,2)+xp,combined_coords(anchor_idx,3)+yp,'LineWidth',2,'Color','k');
-%             axis image
+% Find anchor center and radius here
+% Determine the inputs to DBSCAN
+median_step_size = median(step_sizes);
+% Use poisson distribution for the point density of the cluster
+anchored_radius = max(abs(max(anchored_coords(:,1))-min(anchored_coords(:,1))),abs(max(anchored_coords(:,2))-min(anchored_coords(:,2))))/2;
+expected_number_of_points = length(anchored_coords)/(pi*anchored_radius^2)*pi*median_step_size^2;
+min_points = ceil(length(anchored_coords)/100);
+probability = 1;
+while probability > 0.001
+    % or add by 1, doesn't really matter
+    min_points = min_points + ceil(length(anchored_coords)/100);
+    probability = 1 - poisscdf(min_points,expected_number_of_points);
 end
 
-function traj_coords = anchoredFrameCoords(finalTrajCoords, finalTrajIdx)
+% Determine which coordinate point belongs to which cluster with DBSCAN
+[IDX, ~]=DBSCAN_with_comments(anchored_coords,median_step_size,min_points);
+% Plot the anchored points
+gscatter(anchored_coords(:,1),anchored_coords(:,2),IDX)
+hold on;
+
+ang = 0:0.01:2*pi;
+% Define anchor center for each cluster
+for i=1:max(IDX)
+    % Find anchor center
+    x_y_anchor_coord = mean(anchored_coords(IDX==i,:));
+    % Define anchor radius
+    radius = max(pdist2(x_y_anchor_coord,anchored_coords(IDX==i)));
+    % Save to a variable
+    radius_and_coords = [radius, x_y_anchor_coord];
+    
+    % Plot anchor here
+    xp = radius*cos(ang);
+    yp = radius*sin(ang);
+    plot(x_y_anchor_coord(1,1)+xp,x_y_anchor_coord(1,2)+yp)
+    
+end
+
+% % Use kmeans to find two clusters
+% [kcluster_idx, kcluster_coords] = kmeans(anchored_coords,2);
+% % Find the center coord for a single cluster
+% average_coords = mean(anchored_coords);
+% % Find the distance from all of the points to the anchor coords
+% sum_dist = sum([pdist2(anchored_coords,kcluster_coords(1,:)),pdist2(anchored_coords,kcluster_coords(2,:)),pdist2(anchored_coords,average_coords)]);
+% final_anchor_idx = find(sum_dist==min(sum_dist));
+% % Find which of the 3 anchor coords fits the data the best
+% % If all the frames are nicely clustered, the center becomes the
+% % average of all the frames stuck in the anchor
+% % If there are outliars, then one of the kcluster_coords fits
+% % better
+% if final_anchor_idx==1
+%     diameter = min(max(anchored_coords(kcluster_idx==1,1))-min(anchored_coords(kcluster_idx==1,1)),max(anchored_coords(kcluster_idx==1,2))-min(anchored_coords(kcluster_idx==1,2)));
+%     radius_and_coords = [diameter/2, kcluster_coords(1,:)];
+% % If there are outliars, define the center as the mean of the
+% % bigger cluster
+% elseif final_anchor_idx==2
+%     diameter = min(max(anchored_coords(kcluster_idx==2,1))-min(anchored_coords(kcluster_idx==2,1)),max(anchored_coords(kcluster_idx==2,2))-min(anchored_coords(kcluster_idx==2,2)));
+%     radius_and_coords = [diameter/2, kcluster_coords(2,:)];
+% elseif final_anchor_idx==3
+%     diameter = min(max(anchored_coords(:,1))-min(anchored_coords(:,1)),max(anchored_coords(:,2))-min(anchored_coords(:,2)));
+%     radius_and_coords = [diameter/2, average_coords];
+% end
+
+end
+
+function frame_by_frame_displacement = adjacentFrameDisplacement(coordinates)
+frame_by_frame_displacement = zeros(length(coordinates)-1,1);
+for i=1:length(coordinates)-1
+    frame_by_frame_displacement(i) = pdist2(coordinates(i,:),coordinates(i+1,:));
+end
+end
+
+function [traj_coords, frame_displacement] = anchoredFrameCoords(finalTrajCoords, finalTrajIdx)
+% Returns a n by 2 matrix of just x, y coordinates of all of the anchored
+% trajectories
 traj_coords = finalTrajCoords{finalTrajIdx(1)}(:,1:2);
+frame_displacement = adjacentFrameDisplacement(traj_coords);
 for trajs = 2:length(finalTrajIdx)
-    traj_coords = cat(1,traj_coords,finalTrajCoords{finalTrajIdx(trajs)}(:,1:2));
+    traj_coords = cat(1, traj_coords, finalTrajCoords{finalTrajIdx(trajs)}(:,1:2));
+    frame_displacement = cat(1, frame_displacement, adjacentFrameDisplacement(traj_coords));
 end
 end
 
