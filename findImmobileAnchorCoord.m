@@ -1,9 +1,9 @@
-function pre_anchor_coords = findImmobileAnchorCoord(immobileSpots,index,immobile_coords)
+function pre_anchor_coords = findImmobileAnchorCoord(clustered_immobile_spots,immobile_x_y_coords)
     % Find new anchor coordinates and add them to the anchor_coords
-    pre_anchor_coords=zeros(length(immobileSpots{index}),2);
+    pre_anchor_coords=zeros(length(clustered_immobile_spots),2);
     % center_coords are the centroids for all trajectories
-    for n=1:length(immobileSpots{index})
-        pre_anchor_coords(n,:)=[mean(immobile_coords(immobileSpots{index}{n},4)),mean(immobile_coords(immobileSpots{index}{n},5))];
+    for anchor_idx=1:length(clustered_immobile_spots)
+        pre_anchor_coords(anchor_idx,:) = mean(immobile_x_y_coords(clustered_immobile_spots{anchor_idx},:));
     end
 end
 
