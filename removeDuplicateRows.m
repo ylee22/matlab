@@ -1,10 +1,22 @@
 % Remove duplicate rows of overlapping trajectories
 % This function replaces duplicate rows with empty matrices
-function duplicateRows = removeDuplicateRows(duplicateRows)
-    for i=1:length(duplicateRows)
-        for j=2:length(duplicateRows{i})
-            if isempty(setdiff(duplicateRows{i},duplicateRows{duplicateRows{i}(j)})) && isempty(setdiff(duplicateRows{duplicateRows{i}(j)},duplicateRows{i}))
-                duplicateRows{duplicateRows{i}(j)}=[];
+% setdiff IS TAKING UP LITERALLY ALL OF THE TIME!!!
+function array_with_duplicate_rows = removeDuplicateRows(array_with_duplicate_rows)
+    for i=1:length(array_with_duplicate_rows)
+        current_row = array_with_duplicate_rows{i};
+        for j=2:length(current_row)
+            % duplicateRows are the output from rangesearch using kdtrees
+            % Since it holds row indices for each vector, row indices
+            % should all be unique, no need to check for duplicates before
+            % comparing length
+            % If two rows are identical, they should have the same length
+            duplicate_row = array_with_duplicate_rows{current_row(j)};
+            if length(current_row) == length(duplicate_row)
+                % Check here to see if the two rows have identical elements
+                if sum(ismember(current_row, duplicate_row)) == length(current_row) && sum(ismember(duplicate_row, current_row)) ==  length(duplicate_row)
+                    % Delete the second duplicated row
+                    array_with_duplicate_rows{current_row(j)}=[];
+                end
             end
         end
     end
