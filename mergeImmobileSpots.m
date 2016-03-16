@@ -1,4 +1,4 @@
-function anchoredSpots=mergeImmobileSpots(neighboringSpots, localization_acc, immobile_coords)
+function anchored_spots = mergeImmobileSpots(neighboring_spots, localization_acc, immobile_coords_only)
     % anchoredTraj: rows are different anchors and row entries are the
     % trajectories that are stuck in that anchor (array in an array
     % containing vectors of row indices of finalTraj, finalTraj holds 
@@ -13,19 +13,23 @@ function anchoredSpots=mergeImmobileSpots(neighboringSpots, localization_acc, im
     % (row entries refer to the rows of anchor coords and anchoredTraj)
 
     % Find anchor coordinates for 20 nm circles (localization accuracy)
-    anchoredSpots{1}=neighboringSpots;
-    anchor_coords{1}=immobile_coords(:,4:5);
+    % I don't filter for minimum 2 spots...
+    anchored_spots{1} = filterTraj(neighboring_spots,2);
+    % THIS IS WRONG!!! ANCHORED_SPOTS HAS ALREADY BEEN SEARCHED FOR
+    % NEIGHBORS WITHIN 20 NM!!! EITHER FILTER FIRST FOR MIN 2 AND THEN ONLY
+    % PICK ON THE IMMOBILE COORDS
+    anchor_coords{1} = findImmobileAnchorCoord(anchored_spots{1}, immobile_coords_only);
 
-    merged_marker=1;
+    merged_marker = 1;
     % For each of the anchors with radius 20n, let n be a natural number
     while merged_marker
-        merged_marker=0;
-        for i=1:length(anchor_coords)
-            for j=1:length(anchor_coords)
+        merged_marker = 0;
+        for i = 1:length(anchor_coords)
+            for j = 1:length(anchor_coords)
                 % If both anchor sizes aren't empty
                 if ~isempty(anchor_coords{j}) && ~isempty(anchor_coords{i})
                     % Make kd tree for each of the 20n anchor sizes
-                    kd_anchors_j=KDTreeSearcher(anchor_coords{j});
+                    kd_anchors_j = KDTreeSearcher(anchor_coords{j});
                     % Find anchors to be merged (merge distance is the sum of the
                     % radii of the two anchors to be merged)
                     % neighboringAnchors holds the rows of anchor_coords that
@@ -33,42 +37,49 @@ function anchoredSpots=mergeImmobileSpots(neighboringSpots, localization_acc, im
                     % correlates with the row index of i, individual entries are
                     % the row indicies of j)
                     % neighboringAnchors has same number of rows as anchor_coords{j}
-                    neighboringAnchors=rangesearch(kd_anchors_j,anchor_coords{i},localization_acc*(i+j));
+                    neighboringAnchors = rangesearch(kd_anchors_j,anchor_coords{i},localization_acc*(i+j));
 
                     % If it's a self comparison
-                    if i==j
+                    if i == j
+                        % Can't filter before removing duplicates, will
+                        % loose indices
                         % Remove duplicate rows of overlapping anchors
                         neighboringAnchors = removeDuplicateRows(neighboringAnchors);
                     end
 
                     % Merge anchor trajectories and remove merged anchor trajectories
                     % newAnchoredTraj holds the new merged anchor trajectories
-                    [newAnchoredSpots, anchoredSpots, anchor_coords]=mergeAnchors(neighboringAnchors, anchoredSpots, i, j, anchor_coords);
+                    [new_anchored_spots, anchored_spots, anchor_coords] = mergeAnchors(neighboringAnchors, anchored_spots, i, j, anchor_coords);
                     
                     % If there are new anchors to be merged
-                    if sum(size(newAnchoredSpots))~=0 && sum(cellfun(@isempty,newAnchoredSpots))~=length(newAnchoredSpots)
-                        merged_marker=1;
+                    if ~isempty(new_anchored_spots)
+                        
+                        if ~(sum(size(new_anchored_spots))~=0 && sum(cellfun(@isempty,new_anchored_spots))~=length(new_anchored_spots))
+                            error('new anchored spots is empty')
+                        end
+                        
+                        merged_marker = 1;
                         % If starting a new anchor size array
                         if i+j > length(anchor_coords) || isempty(anchor_coords{i+j})
-                            anchoredSpots{i+j}=newAnchoredSpots;
+                            anchored_spots{i+j} = new_anchored_spots;
                         % If adding to an existing anchor size array
                         else
                             % Add to the end
-                            anchoredSpots{i+j}=cat(2,anchoredSpots{i+j},newAnchoredSpots);
+                            anchored_spots{i+j} = cat(2,anchored_spots{i+j},new_anchored_spots);
                         end
 
                         % Remake anchor coordinates with new anchor trajectories
-                        anchor_coords{i+j}=findImmobileAnchorCoord(anchoredSpots,i+j,immobile_coords);
+                        anchor_coords{i+j} = findImmobileAnchorCoord(anchored_spots{i+j},immobile_coords_only);
                        
                         % Anchor coordinates have shifted, there are some that are 
                         % within the merge radius
-                        kd_pre_anchor_coords=KDTreeSearcher(anchor_coords{i+j});
-                        same_radius_overlapping_anchors=rangesearch(kd_pre_anchor_coords,anchor_coords{i+j},localization_acc*(i+j));
-                        same_radius_overlapping_anchors=removeDuplicateRows(same_radius_overlapping_anchors);
-                        [newAnchoredTraj2, anchoredSpots, ~]=mergeAnchors(same_radius_overlapping_anchors, anchoredSpots, i+j, i+j, anchor_coords);
+                        kd_pre_anchor_coords = KDTreeSearcher(anchor_coords{i+j});
+                        same_radius_overlapping_anchors = rangesearch(kd_pre_anchor_coords,anchor_coords{i+j},localization_acc*(i+j));
+                        same_radius_overlapping_anchors = removeDuplicateRows(same_radius_overlapping_anchors);
+                        [newAnchoredTraj2, anchored_spots, ~] = mergeAnchors(same_radius_overlapping_anchors, anchored_spots, i+j, i+j, anchor_coords);
                         % Add the new merged anchors at the end
-                        anchoredSpots{i+j}=cat(2,anchoredSpots{i+j},newAnchoredTraj2);
-                        anchor_coords{i+j}=findImmobileAnchorCoord(anchoredSpots,i+j,immobile_coords);
+                        anchored_spots{i+j} = cat(2,anchored_spots{i+j},newAnchoredTraj2);
+                        anchor_coords{i+j} = findImmobileAnchorCoord(anchored_spots{i+j},immobile_coords_only);
                     end
                 end
             end
