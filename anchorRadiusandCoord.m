@@ -1,4 +1,4 @@
-function [ radius_and_coords, spot_to_traj ] = anchorRadiusandCoord(finalTraj,immobile_coords,spots,trajs,LOC_ACC)
+function [ radius_and_coords, spot_to_traj ] = anchorRadiusandCoord(finalTraj,immobile_coords,spots,trajs,LOC_ACC,GLOBAL_DENSITY)
 %UNTITLED3 Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -20,9 +20,13 @@ if ~isempty(spots) && ~isempty(trajs)
     % anchored trajectories
     search_radius = median(search_radius);
     % Use poisson distribution for the minimum points to define an anchor
-    anchored_radius = max(max(anchored_coords(:,1))-min(anchored_coords(:,1)),max(anchored_coords(:,2))-min(anchored_coords(:,2)))/2;
-    expected_number_of_points = length(anchored_coords)/(pi*anchored_radius^2)*pi*search_radius^2;
-    min_points = ceil(length(anchored_coords)/100);
+    anchored_radius = max(pdist(anchored_coords))/2;
+%     expected_number_of_points = length(anchored_coords)/(pi*anchored_radius^2)*pi*search_radius^2;
+%     min_points = ceil(length(anchored_coords)/100);
+
+    expected_number_of_points = GLOBAL_DENSITY*pi*search_radius^2;
+    min_points = 2;
+
     probability = 1;
     while probability > 0.05 && min_points < length(anchored_coords);
         min_points = min_points + 1;
@@ -57,9 +61,13 @@ elseif ~isempty(trajs)
     % anchored trajectories
     search_radius = median(search_radius);
     % Use poisson distribution for the minimum points to define an anchor
-    anchored_radius = max(max(anchored_coords(:,1))-min(anchored_coords(:,1)),max(anchored_coords(:,2))-min(anchored_coords(:,2)))/2;
-    expected_number_of_points = length(anchored_coords)/(pi*anchored_radius^2)*pi*search_radius^2;
-    min_points = ceil(length(anchored_coords)/100);
+    anchored_radius = max(pdist(anchored_coords))/2;
+%     expected_number_of_points = length(anchored_coords)/(pi*anchored_radius^2)*pi*search_radius^2;
+%     min_points = ceil(length(anchored_coords)/100);
+
+    expected_number_of_points = GLOBAL_DENSITY*pi*search_radius^2;
+    min_points = 2;
+
     probability = 1;
     while probability > 0.05 && min_points < length(anchored_coords);
         min_points = min_points + 1;
@@ -93,7 +101,7 @@ if max(IDX) > 1
         % Loop through every combination
         for idx1 = 1:size(anchors,1)
             for idx2 = idx1+1:size(anchors,1)
-                if dist_matrix(idx1,idx2) <= (radii(idx1) + radii(idx2))*1.1
+                if dist_matrix(idx1,idx2) <= (radii(idx1) + radii(idx2))*1.2
                     OVERLAP = 1;
                     search_radius = search_radius + ceil(length(anchored_coords)*0.1);
                     % Redo DBSCAN with larger search_radius
