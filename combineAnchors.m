@@ -1,6 +1,42 @@
-function [ flattened_trajs_spots, larger_anchor_coords, first_last_anchor_frames, trajs ] = combineAnchors( finalTraj, cluster_anchor_coords, cluster_trajs, immobile_coords, immobile_anchor_coords, immobile_spots, localization_acc )
-%UNTITLED Summary of this function goes here
-%   Detailed explanation goes here
+function [ flattened_trajs_spots, larger_anchor_coords, first_last_anchor_frames, trajs ] = combineAnchors( finalTraj, cluster_anchor_coords, cluster_trajs, immobile_coords, immobile_anchor_coords, immobile_spots, LOC_ACC )
+% Summary: This function combines the cluster and immobile anchors
+% together, returns the finalized anchor (radius, center, duration) and the
+% trajectories and or the immobile spots used to define the anchor
+
+% Inputs:
+%   finalTraj: output from Tao's SMT that's been modified (segmented 
+%   trajectories reconnected and filtered for minimum length). 
+%   Cell array with each entry referring to a unique trajectory. 
+%   Each entry (trajectory) is an n by 7 matrix:
+%       1. x coordinate in nms (converted to nms from Tao's SMT)
+%       2. y coordinate in nms (converted to nms from Tao's SMT)
+%       3. the starting index in cordata.coords_smt (referring to the output from wfiread, the .coor file)
+%       4. the index number in finalTraj
+%       5. frame number
+%       6. starting frame number
+%       7. ending frame number
+
+%   cluster_anchor_coords: cell array with each index, i, representing search
+%   radius of 20i nms. Under each index is a n by 2 matrix with x and y 
+%   cluster anchor center coordinates
+
+%   cluster_trajs: cell array with vectors referring to the finalTraj
+%   index. Each vector in cluster_trajs was used to define the respective 
+%   index (anchor) in cluster_anchor_coords
+
+%   immobile_coords: n by 5 matrix of all consecutive frame displacement
+%   (frame i to i+1) less than the localization accuracy
+%   [traj row number in finalTraj, 1st frame, 2nd frame, averaged x, averaged y]
+
+%   immobile_anchor_coords: cell array with each index, i, representing search
+%   radius of 20i nms. Under each index is a n by 2 matrix with x and y
+%   immobile anchor center coordinates
+
+%   immobile_spots: cell array with vectors referring to the
+%   immobile_coords index. Each vector in immobile_spots was used to define
+%   the respective index (anchor) in immobile_anchor_coords
+
+%   localization_acc: localization accuracy of the movie
 
 % Problem: a single trajectory can be stuck in multiple anchors
 % Fix this problem by using trajectories and center coord for cluster
@@ -8,6 +44,10 @@ function [ flattened_trajs_spots, larger_anchor_coords, first_last_anchor_frames
 % {{[-1: trajectories],[-2: spots]}}
 % The larger anchor trajs will have to be redone with -1 in front
 
+
+% 1. Assign cluster set and immobile set to larger_trajs,
+% larger_anchor_coords, larger_coords and smaller_trajs,
+% smaller_anchor_coords, smaller_coords
 % Will merge fewer anchors into more anchors
 if length(immobile_spots) > length(cluster_trajs)
     
@@ -55,7 +95,12 @@ else
     smaller_coords = immobile_coords(:,4:5);
 end
 
-% Look for overlaps between every pair of anchor sizes
+
+% 2. Look for overlaps between every pair of anchor sizes of the larger set
+% and the smaller set. There shouldn't be any overlaps within each sets,
+% that should have been covered in the findImmobileAnchors and
+% findClusterAnchors. The trajs and anchor_coords should have the same
+% number of anchors (same length).
 for combined_idx = 1:length(larger_trajs)
     for merged_idx = 1:length(smaller_trajs)
         
@@ -63,7 +108,7 @@ for combined_idx = 1:length(larger_trajs)
             if ~isempty(larger_anchor_coords{combined_idx}) && ~isempty(smaller_anchor_coords{merged_idx})
                 % KD tree and the search happens in the function
                 % Both anchor lists are modified
-                [merged_trajs, larger_trajs{combined_idx}, larger_anchor_coords{combined_idx}, smaller_trajs{merged_idx}, smaller_anchor_coords{merged_idx}] = mergeOverlappingAnchorTrajs(larger_trajs{combined_idx}, larger_anchor_coords{combined_idx}, smaller_trajs{merged_idx}, smaller_anchor_coords{merged_idx}, localization_acc, combined_idx);
+                [merged_trajs, larger_trajs{combined_idx}, larger_anchor_coords{combined_idx}, smaller_trajs{merged_idx}, smaller_anchor_coords{merged_idx}] = mergeOverlappingAnchorTrajs(larger_trajs{combined_idx}, larger_anchor_coords{combined_idx}, smaller_trajs{merged_idx}, smaller_anchor_coords{merged_idx}, LOC_ACC, combined_idx);
                 
                 % Remake the coords using trajectory center coordinates
                 large_merged_coords = findAnchorCenter(merged_trajs,larger_coords,smaller_coords);
@@ -75,7 +120,7 @@ for combined_idx = 1:length(larger_trajs)
             
         elseif merged_idx > combined_idx
             if ~isempty(larger_anchor_coords{combined_idx}) && ~isempty(smaller_anchor_coords{merged_idx})
-                [merged_trajs, smaller_trajs{merged_idx}, smaller_anchor_coords{merged_idx}, larger_trajs{combined_idx}, larger_anchor_coords{combined_idx}] = mergeOverlappingAnchorTrajs(smaller_trajs{merged_idx}, smaller_anchor_coords{merged_idx}, larger_trajs{combined_idx}, larger_anchor_coords{combined_idx}, localization_acc, merged_idx);
+                [merged_trajs, smaller_trajs{merged_idx}, smaller_anchor_coords{merged_idx}, larger_trajs{combined_idx}, larger_anchor_coords{combined_idx}] = mergeOverlappingAnchorTrajs(smaller_trajs{merged_idx}, smaller_anchor_coords{merged_idx}, larger_trajs{combined_idx}, larger_anchor_coords{combined_idx}, LOC_ACC, merged_idx);
 
                 % Remake the coords using trajectory center coordinates
                 large_merged_coords = findAnchorCenter(merged_trajs,larger_coords,smaller_coords);
@@ -89,25 +134,40 @@ for combined_idx = 1:length(larger_trajs)
     end
 end
 
-% After every merging every combination between the two arrays, the left
-% over anchors have no overlaps
-% Add the smaller anchor array to the larger anchor array
+
+% 3. After every merging every combination between the two sets, the left
+% over anchors in the smaller have no overlaps.
+% Add the smaller anchor array to the end of the larger anchor array
 for remaining_anchor_idx = 1:length(smaller_trajs)
     if ~isempty(smaller_trajs{remaining_anchor_idx})
-        for row = 1:length(smaller_trajs{remaining_anchor_idx})
-            if isempty(larger_trajs{remaining_anchor_idx}) && ~iscell(larger_trajs{remaining_anchor_idx})
-                larger_trajs{remaining_anchor_idx}={};
-            elseif ~isempty(larger_trajs{remaining_anchor_idx}) && ~iscell(larger_trajs{remaining_anchor_idx})
-                error('Trajectory array has a non-empty vector instead of a cell aray')
-            end
-            larger_trajs{remaining_anchor_idx} = cat(2,larger_trajs{remaining_anchor_idx}, smaller_trajs{remaining_anchor_idx}{row});
+
+        if ~isempty(larger_trajs{remaining_anchor_idx}) && ~iscell(larger_trajs{remaining_anchor_idx})
+            error('Trajectory array has a non-empty vector instead of a cell aray')
         end
+        
+        larger_trajs{remaining_anchor_idx} = cat(2,larger_trajs{remaining_anchor_idx},smaller_trajs{remaining_anchor_idx});
+        
+%         for row = 1:length(smaller_trajs{remaining_anchor_idx})
+            
+            % Larger_trajs is a cell array within a cell array. If no value
+            % has been assigned to the inner cell array, the default is a
+            % vector. Change it into a cell array, so that we can
+            % concatinate smaller array to the end.
+%             if isempty(larger_trajs{remaining_anchor_idx}) && ~iscell(larger_trajs{remaining_anchor_idx})
+%                 larger_trajs{remaining_anchor_idx}={};
+%             elseif 
+            
+            % Concatinating smaller traj to the larger traj array
+%             larger_trajs{remaining_anchor_idx} = cat(2,larger_trajs{remaining_anchor_idx}, smaller_trajs{remaining_anchor_idx}{row});
+%         end
     end
 end
 
-% Flatten combined_trajs into just a cell array instead of a nested array
-% If an anchor has both trajs and spots, it will be a cell array, otherwise
-% it will just be a vector
+
+% 4. Flatten combined_trajs into just a cell array instead of a nested
+% array. It will loose anchor radius information but it will be remade with
+% DBSCAN. If an anchor has both trajs and spots, it will be a cell array,
+% otherwise it will just be a vector
 flattened_trajs_spots = cell(1,sum(cellfun(@length,larger_trajs)));
 flattened_counter = 0;
 for outer_idx = 1:length(larger_trajs)
@@ -119,105 +179,127 @@ for outer_idx = 1:length(larger_trajs)
     end
 end
 
-larger_anchor_coords = zeros(length(flattened_trajs_spots),3);
-% Fix anchor coords and radius using kmeans clustering
-for anchor_idx = 1:length(flattened_trajs_spots)
-    % If the anchor is defined by only immobile spots, then make the anchor
-    % include ALL of the immobile spots (max of x or y diff)
-    if iscell(larger_coords) && ~iscell(flattened_trajs_spots{anchor_idx}) && flattened_trajs_spots{anchor_idx}(1) == -2
-        % Immobile anchor radius and coordinates
-        larger_anchor_coords(anchor_idx,:) = immobileAnchorRadiusandCoord(smaller_coords, flattened_trajs_spots{anchor_idx}(2:end));
-    elseif iscell(smaller_coords) && ~iscell(flattened_trajs_spots{anchor_idx}) && flattened_trajs_spots{anchor_idx}(1) == -1
-        % Immobile anchor radius and coordinates
-        larger_anchor_coords(anchor_idx,:) = immobileAnchorRadiusandCoord(larger_coords, flattened_trajs_spots{anchor_idx}(2:end));
-    else
-        % Combined and trajectory anchor radius and coordinates
-        larger_anchor_coords(anchor_idx,:) = combinedTrajAnchorRadiusandCenter(larger_coords, smaller_coords, flattened_trajs_spots{anchor_idx});
-    end
-end
 
-% Need to recheck for overlaps
-for anchor=1:length(flattened_trajs_spots)
-    if ~isempty(flattened_trajs_spots{anchor})
-        anchor_tree = KDTreeSearcher([larger_anchor_coords(1:anchor-1,2:3);NaN,NaN;larger_anchor_coords(anchor+1:end,2:3)]);
-        final_overlaps = rangesearch(anchor_tree,larger_anchor_coords(anchor,2:3),larger_anchor_coords(anchor,1));
-        final_overlaps = final_overlaps{:};
-        % Replace, remake center and radius
-        if ~isempty(final_overlaps)
-            % Merge trajectories and spots
-            for i=1:length(final_overlaps)
-                flattened_trajs_spots{anchor} = combineTrajsandSpots(flattened_trajs_spots{anchor},flattened_trajs_spots{final_overlaps(i)});
-                flattened_trajs_spots{final_overlaps(i)} = [];
-                larger_anchor_coords(final_overlaps(i),:) = NaN;                
+% 5. Redefine anchor center and radius using the list of trajectories and
+% spots from above. Need to convert immobile spots/immobile coord indices
+% into trajectories/finalTraj row indices. 
+% Clear out larger_anchor_coords variable. Will be storing anchor 
+% information here.
+larger_anchor_coords = zeros(2*length(flattened_trajs_spots),4);
+trajs = cell(1,2*length(flattened_trajs_spots));
+COUNTER = 1;
+% Fix anchor coords and radius using DBSCAN
+for anchor_idx = 1:length(flattened_trajs_spots)
+    % larger_coords is finalTraj, so -1 (1st) is cluster and -2 (2nd) is
+    % immobile
+    if iscell(larger_coords)
+        % If both
+        if iscell(flattened_trajs_spots{anchor_idx})
+            [anchor_properties, converted_to_traj] = anchorRadiusandCoord(larger_coords,immobile_coords,flattened_trajs_spots{anchor_idx}{2}(2:end),flattened_trajs_spots{anchor_idx}{1}(2:end),LOC_ACC);
+            % Sometimes DBSCAN gives multiple anchors
+            for z = 1:size(anchor_properties,1)
+                larger_anchor_coords(COUNTER,:) = anchor_properties(z,:);
+                trajs{COUNTER} = cat(2,flattened_trajs_spots{anchor_idx}{1}(2:end),converted_to_traj);
+                COUNTER = COUNTER + 1;
             end
-            % Remake anchor radius and center
-            if iscell(larger_coords) && ~iscell(flattened_trajs_spots{anchor}) && flattened_trajs_spots{anchor}(1) == -2
-                % Remake immobile anchor radius and coordinates
-                larger_anchor_coords(anchor,:) = immobileAnchorRadiusandCoord(smaller_coords, flattened_trajs_spots{anchor}(2:end));
-            elseif iscell(smaller_coords) && ~iscell(flattened_trajs_spots{anchor}) && flattened_trajs_spots{anchor}(1) == -1
-                % Remake immobile anchor radius and coordinates
-                larger_anchor_coords(anchor,:) = immobileAnchorRadiusandCoord(larger_coords, flattened_trajs_spots{anchor}(2:end));
-            else
-                % Remake combined and trajectory anchor center and radius
-                larger_anchor_coords(anchor,:) = combinedTrajAnchorRadiusandCenter(larger_coords, smaller_coords, flattened_trajs_spots{anchor});
+        % If cluster only
+        elseif flattened_trajs_spots{anchor_idx}(1) == -1
+            [anchor_properties, ~] = anchorRadiusandCoord(larger_coords,[],[],flattened_trajs_spots{anchor_idx}(2:end),LOC_ACC);
+            % Sometimes DBSCAN gives multiple anchors
+            for z = 1:size(anchor_properties,1)
+                larger_anchor_coords(COUNTER,:) = anchor_properties(z,:);
+                trajs{COUNTER} = flattened_trajs_spots{anchor_idx}(2:end);
+                COUNTER = COUNTER + 1;
+            end
+        % If immobile only
+        elseif flattened_trajs_spots{anchor_idx}(1) == -2
+            % Immobile anchor radius and coordinates
+            [anchor_properties, converted_to_traj] = anchorRadiusandCoord(larger_coords,immobile_coords,flattened_trajs_spots{anchor_idx}(2:end),[],LOC_ACC);
+            for z = 1:size(anchor_properties,1)
+                larger_anchor_coords(COUNTER,:) = anchor_properties(z,:);
+                trajs{COUNTER} = converted_to_traj;
+                COUNTER = COUNTER + 1;
+            end
+        end
+        
+    % smaller_coords is finalTraj, so -1 (1st) is immobile and -2 (2nd) is
+    % cluster
+    else
+        % If larger_coords is finalTraj and this anchor is immobile only
+        if iscell(flattened_trajs_spots{anchor_idx})
+            [anchor_properties, converted_to_traj] = anchorRadiusandCoord(smaller_coords,immobile_coords,flattened_trajs_spots{anchor_idx}{1}(2:end),flattened_trajs_spots{anchor_idx}{2}(2:end),LOC_ACC);
+            for z = 1:size(anchor_properties,1)
+                larger_anchor_coords(COUNTER,:) = anchor_properties(z,:);
+                trajs{COUNTER} = cat(2,flattened_trajs_spots{anchor_idx}{2}(2:end),converted_to_traj);
+                COUNTER = COUNTER + 1;
+            end
+        % If immobile only
+        elseif flattened_trajs_spots{anchor_idx}(1) == -1
+            [anchor_properties, converted_to_traj] = anchorRadiusandCoord(smaller_coords,immobile_coords,flattened_trajs_spots{anchor_idx}(2:end),[],LOC_ACC);
+            for z = 1:size(anchor_properties,1)
+                larger_anchor_coords(COUNTER,:) = anchor_properties(z,:);
+                trajs{COUNTER} = converted_to_traj;
+                COUNTER = COUNTER + 1;
+            end
+        % If cluster only
+        elseif flattened_trajs_spots{anchor_idx}(1) == -2
+            [anchor_properties, ~] = anchorRadiusandCoord(smaller_coords,[],[],flattened_trajs_spots{anchor_idx}(2:end),LOC_ACC);
+            for z = 1:size(anchor_properties,1)
+                larger_anchor_coords(COUNTER,:) = anchor_properties(z,:);
+                trajs{COUNTER} = flattened_trajs_spots{anchor_idx}(2:end);
+                COUNTER = COUNTER + 1;
             end
         end
     end
+        
 end
 
-% Remove the anchor coordinates that's been merged
-larger_anchor_coords = larger_anchor_coords(~cellfun(@isempty,flattened_trajs_spots),:);
-% Get rid of empty arrays in smaller anchor trajectories
-flattened_trajs_spots = filterTraj(flattened_trajs_spots,1);
+% Get rid of empty, unused rows
+larger_anchor_coords = larger_anchor_coords(1:COUNTER-1,:);
+trajs = trajs(1:COUNTER-1);
+
+% START FIXING FROM HERE
+% % Need to recheck for overlaps
+% for anchor=1:length(flattened_trajs_spots)
+%     if ~isempty(flattened_trajs_spots{anchor})
+%         anchor_tree = KDTreeSearcher([larger_anchor_coords(1:anchor-1,2:3);NaN,NaN;larger_anchor_coords(anchor+1:end,2:3)]);
+%         final_overlaps = rangesearch(anchor_tree,larger_anchor_coords(anchor,2:3),larger_anchor_coords(anchor,1));
+%         final_overlaps = final_overlaps{:};
+%         % Replace, remake center and radius
+%         if ~isempty(final_overlaps)
+%             % Merge trajectories and spots
+%             for i=1:length(final_overlaps)
+%                 flattened_trajs_spots{anchor} = combineTrajsandSpots(flattened_trajs_spots{anchor},flattened_trajs_spots{final_overlaps(i)});
+%                 flattened_trajs_spots{final_overlaps(i)} = [];
+%                 larger_anchor_coords(final_overlaps(i),:) = NaN;                
+%             end
+%             % Remake anchor radius and center
+%             if iscell(larger_coords) && ~iscell(flattened_trajs_spots{anchor}) && flattened_trajs_spots{anchor}(1) == -2
+%                 % Remake immobile anchor radius and coordinates
+%                 larger_anchor_coords(anchor,:) = immobileAnchorRadiusandCoord(smaller_coords, flattened_trajs_spots{anchor}(2:end));
+%             elseif iscell(smaller_coords) && ~iscell(flattened_trajs_spots{anchor}) && flattened_trajs_spots{anchor}(1) == -1
+%                 % Remake immobile anchor radius and coordinates
+%                 larger_anchor_coords(anchor,:) = immobileAnchorRadiusandCoord(larger_coords, flattened_trajs_spots{anchor}(2:end));
+%             else
+%                 % Remake combined and trajectory anchor center and radius
+%                 larger_anchor_coords(anchor,:) = combinedTrajAnchorRadiusandCenter(larger_coords, smaller_coords, flattened_trajs_spots{anchor});
+%             end
+%         end
+%     end
+% end
+% 
+% % Remove the anchor coordinates that's been merged
+% larger_anchor_coords = larger_anchor_coords(~cellfun(@isempty,flattened_trajs_spots),:);
+% % Get rid of empty arrays in smaller anchor trajectories
+% flattened_trajs_spots = filterTraj(flattened_trajs_spots,1);
 
 % Find anchor duration
 % Get the starting and the ending frame numbers for all of the trajectories in each anchor
-% Need to convert spots into trajectory row IDs before I can find the
-% frame numbers
-
-% Convert spots into trajs and add to the trajs array
-% Gets rid of markers (-1 and -2) for cluster and immobile
-% trajs should only include trajectories, not immobile spots
-trajs = cell(1,length(flattened_trajs_spots));
-% If the smaller set refers to the immobile spots
-if iscell(larger_coords)
-    for current_anchor = 1:length(flattened_trajs_spots)
-        if iscell(flattened_trajs_spots{current_anchor})
-            trajs{current_anchor} = cat(2,trajs{current_anchor},flattened_trajs_spots{current_anchor}{1}(2:end));
-            trajs{current_anchor} = cat(2,trajs{current_anchor},unique(immobile_coords(flattened_trajs_spots{current_anchor}{2}(2:end),1))');
-        elseif flattened_trajs_spots{current_anchor}(1) == -1
-            trajs{current_anchor} = cat(2,trajs{current_anchor},flattened_trajs_spots{current_anchor}(2:end));
-        elseif flattened_trajs_spots{current_anchor}(1) == -2
-            trajs{current_anchor} = cat(2,trajs{current_anchor},unique(immobile_coords(flattened_trajs_spots{current_anchor}(2:end),1))');
-        end 
-    end
-% If the larger set refers to the immobile spots
-else
-    for current_anchor = 1:length(flattened_trajs_spots)
-        if iscell(flattened_trajs_spots{current_anchor})
-            trajs{current_anchor} = cat(2,trajs{current_anchor},unique(immobile_coords(flattened_trajs_spots{current_anchor}{1}(2:end),1))');
-            trajs{current_anchor} = cat(2,trajs{current_anchor},flattened_trajs_spots{current_anchor}{2}(2:end));            
-        elseif flattened_trajs_spots{current_anchor}(1) == -1
-            trajs{current_anchor} = cat(2,trajs{current_anchor},unique(immobile_coords(flattened_trajs_spots{current_anchor}(2:end),1))');
-        elseif flattened_trajs_spots{current_anchor}(1) == -2
-            trajs{current_anchor} = cat(2,trajs{current_anchor},flattened_trajs_spots{current_anchor}(2:end));
-        end 
-    end
-end
-
 anchor_frames = frameNumbers(trajs, finalTraj);
 
 % Get the first and last frames for all of the anchors
 first_last_anchor_frames = firstLastFrame(anchor_frames);
 
-end
-
-function radiusandcoords = immobileAnchorRadiusandCoord(immobile_spot_coords, spot_IDs)
-% Find the anchor coord
-anchor_coord = mean(immobile_spot_coords(spot_IDs, :));
-% Farthest out spot defines the radius of the anchor
-radius = max(pdist2(anchor_coord, immobile_spot_coords(spot_IDs, :)));
-radiusandcoords = [radius, anchor_coord];
 end
 
 function combined_trajs_and_spots = combineTrajsandSpots(trajs_and_spots1,trajs_and_spots2)
@@ -286,109 +368,6 @@ first_last_frames = zeros(length(anchor_frames), 3);
 for q = 1:length(anchor_frames)
     first_last_frames(q,:)=[anchor_frames{q}(1,1), min(anchor_frames{q}(:,2)), max(anchor_frames{q}(:,3))];
 end
-end
-
-function radius_and_coords = combinedTrajAnchorRadiusandCenter(large_coords,small_coords,current_trajs_spots)
-% Have to check to see if it's an array or a vector first, then check the
-% first element (-1 or -2).
-% Hold all of the x, y anchored frame coordinates into a n by 2 matrix
-
-anchored_coords = [];
-% Problem: one of the coordinate systems is a cell, while the other is a
-% matrix. Traj IDs refer to the rows of finalTraj.
-
-% Separate scenarios by both trajs and spots being anchored vs only one
-% type being anchored
-if iscell(current_trajs_spots)
-    if iscell(large_coords)
-        [traj_coords, step_sizes] = anchoredFrameCoords(large_coords, current_trajs_spots{1}(2:end));
-        anchored_coords = cat(1,anchored_coords,traj_coords);
-        anchored_coords = cat(1,anchored_coords,small_coords(current_trajs_spots{2}(2:end),:));
-    else
-        anchored_coords = cat(1,anchored_coords,large_coords(current_trajs_spots{1}(2:end),:));
-        [traj_coords, step_sizes] = anchoredFrameCoords(small_coords, current_trajs_spots{2}(2:end));
-        anchored_coords = cat(1,anchored_coords,traj_coords);
-    end
-elseif current_trajs_spots(1) == -1
-    if iscell(large_coords)
-        [traj_coords, step_sizes] = anchoredFrameCoords(large_coords, current_trajs_spots(2:end));
-        anchored_coords = cat(1,anchored_coords,traj_coords);
-    else
-        error('Immobile anchors are not getting filtered')
-%         anchored_coords = cat(1,anchored_coords,large_coords(current_trajs_spots(2:end),:));
-    end
-elseif current_trajs_spots(1) == -2
-    if iscell(small_coords)
-        [traj_coords, step_sizes] = anchoredFrameCoords(small_coords, current_trajs_spots(2:end));
-        anchored_coords = cat(1,anchored_coords,traj_coords);
-    else
-        error('Immobile anchors are not getting filtered')
-%         anchored_coords = cat(1,anchored_coords,small_coords(current_trajs_spots(2:end),:));
-    end
-end
-
-% Find anchor center and radius here
-% Determine the inputs to DBSCAN
-median_step_size = median(step_sizes);
-% Use poisson distribution for the point density of the cluster
-anchored_radius = max(abs(max(anchored_coords(:,1))-min(anchored_coords(:,1))),abs(max(anchored_coords(:,2))-min(anchored_coords(:,2))))/2;
-expected_number_of_points = length(anchored_coords)/(pi*anchored_radius^2)*pi*median_step_size^2;
-min_points = ceil(length(anchored_coords)/100);
-probability = 1;
-while probability > 0.001
-    % or add by 1, doesn't really matter
-    min_points = min_points + ceil(length(anchored_coords)/100);
-    probability = 1 - poisscdf(min_points,expected_number_of_points);
-end
-
-% Determine which coordinate point belongs to which cluster with DBSCAN
-[IDX, ~]=DBSCAN_with_comments(anchored_coords,median_step_size,min_points);
-% Plot the anchored points
-gscatter(anchored_coords(:,1),anchored_coords(:,2),IDX)
-hold on;
-
-ang = 0:0.01:2*pi;
-% Define anchor center for each cluster
-for i=1:max(IDX)
-    % Find anchor center
-    x_y_anchor_coord = mean(anchored_coords(IDX==i,:));
-    % Define anchor radius
-    radius = max(pdist2(x_y_anchor_coord,anchored_coords(IDX==i)));
-    % Save to a variable
-    radius_and_coords = [radius, x_y_anchor_coord];
-    
-    % Plot anchor here
-    xp = radius*cos(ang);
-    yp = radius*sin(ang);
-    plot(x_y_anchor_coord(1,1)+xp,x_y_anchor_coord(1,2)+yp)
-    
-end
-
-% % Use kmeans to find two clusters
-% [kcluster_idx, kcluster_coords] = kmeans(anchored_coords,2);
-% % Find the center coord for a single cluster
-% average_coords = mean(anchored_coords);
-% % Find the distance from all of the points to the anchor coords
-% sum_dist = sum([pdist2(anchored_coords,kcluster_coords(1,:)),pdist2(anchored_coords,kcluster_coords(2,:)),pdist2(anchored_coords,average_coords)]);
-% final_anchor_idx = find(sum_dist==min(sum_dist));
-% % Find which of the 3 anchor coords fits the data the best
-% % If all the frames are nicely clustered, the center becomes the
-% % average of all the frames stuck in the anchor
-% % If there are outliars, then one of the kcluster_coords fits
-% % better
-% if final_anchor_idx==1
-%     diameter = min(max(anchored_coords(kcluster_idx==1,1))-min(anchored_coords(kcluster_idx==1,1)),max(anchored_coords(kcluster_idx==1,2))-min(anchored_coords(kcluster_idx==1,2)));
-%     radius_and_coords = [diameter/2, kcluster_coords(1,:)];
-% % If there are outliars, define the center as the mean of the
-% % bigger cluster
-% elseif final_anchor_idx==2
-%     diameter = min(max(anchored_coords(kcluster_idx==2,1))-min(anchored_coords(kcluster_idx==2,1)),max(anchored_coords(kcluster_idx==2,2))-min(anchored_coords(kcluster_idx==2,2)));
-%     radius_and_coords = [diameter/2, kcluster_coords(2,:)];
-% elseif final_anchor_idx==3
-%     diameter = min(max(anchored_coords(:,1))-min(anchored_coords(:,1)),max(anchored_coords(:,2))-min(anchored_coords(:,2)));
-%     radius_and_coords = [diameter/2, average_coords];
-% end
-
 end
 
 function frame_by_frame_displacement = adjacentFrameDisplacement(coordinates)

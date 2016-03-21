@@ -13,11 +13,9 @@ function anchored_spots = mergeImmobileSpots(neighboring_spots, localization_acc
     % (row entries refer to the rows of anchor coords and anchoredTraj)
 
     % Find anchor coordinates for 20 nm circles (localization accuracy)
-    % I don't filter for minimum 2 spots...
     anchored_spots{1} = filterTraj(neighboring_spots,2);
-    % THIS IS WRONG!!! ANCHORED_SPOTS HAS ALREADY BEEN SEARCHED FOR
-    % NEIGHBORS WITHIN 20 NM!!! EITHER FILTER FIRST FOR MIN 2 AND THEN ONLY
-    % PICK ON THE IMMOBILE COORDS
+    % MAY WANT TO KEEP NON OVERLAPPING SINGLE SPOTS FOR THE FIRST ROUND OR
+    % INCREASE THE SEARCH RADIUS
     anchor_coords{1} = findImmobileAnchorCoord(anchored_spots{1}, immobile_coords_only);
 
     merged_marker = 1;

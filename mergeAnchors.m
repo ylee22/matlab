@@ -14,24 +14,24 @@ function [newAnchoredTraj, anchoredTraj, anchor_coords] = mergeAnchors(neighbori
             temp = unique([anchoredTraj{bigger_idx}{anchor_coords_i_row_idx},anchoredTraj{smaller_idx}{anchor_coords_j_rows}]);
             if ~isempty(temp)
                 % newAnchoredTraj holds the new combined anchor trajectories
-                newAnchoredTraj{end+1}=temp;
+                newAnchoredTraj{end+1} = temp;
                 % Remove the combined anchoredTraj from i and j
-                anchoredTraj{bigger_idx}{anchor_coords_i_row_idx}=[];
-                for anchor_coords_j_idx=1:length(anchor_coords_j_rows)
-                    anchoredTraj{smaller_idx}{anchor_coords_j_rows(anchor_coords_j_idx)}=[];
+                anchoredTraj{bigger_idx}{anchor_coords_i_row_idx} = [];
+                for anchor_coords_j_idx = 1:length(anchor_coords_j_rows)
+                    anchoredTraj{smaller_idx}{anchor_coords_j_rows(anchor_coords_j_idx)} = [];
                 end
             end
         end
     end
     
     % Remove anchor coordinates of the anchors that have been merged
-    if bigger_idx==smaller_idx
-        anchor_coords{bigger_idx}=anchor_coords{bigger_idx}(~cellfun(@isempty,anchoredTraj{bigger_idx}),:);
+    if bigger_idx == smaller_idx
+        anchor_coords{bigger_idx} = anchor_coords{bigger_idx}(~cellfun(@isempty,anchoredTraj{bigger_idx}),:);
         anchoredTraj{bigger_idx} = filterTraj(anchoredTraj{bigger_idx},1);
     else
         % Rows of anchoredTraj match with rows of anchor_coords
-        anchor_coords{bigger_idx}=anchor_coords{bigger_idx}(~cellfun(@isempty,anchoredTraj{bigger_idx}),:);
-        anchor_coords{smaller_idx}=anchor_coords{smaller_idx}(~cellfun(@isempty,anchoredTraj{smaller_idx}),:);
+        anchor_coords{bigger_idx} = anchor_coords{bigger_idx}(~cellfun(@isempty,anchoredTraj{bigger_idx}),:);
+        anchor_coords{smaller_idx} = anchor_coords{smaller_idx}(~cellfun(@isempty,anchoredTraj{smaller_idx}),:);
 
         % Get rid of empty arrays in anchoredTraj
         anchoredTraj{bigger_idx} = filterTraj(anchoredTraj{bigger_idx},1);

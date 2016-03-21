@@ -16,7 +16,7 @@ for movie_index=1:length(all_combFinalTrajs)
     [immobile_anchor_coords, immobile_anchored_spots, immobile_coords]=findImmobileAnchors(finalTrajmin5, localization_acc, cell_area);
     
     % Find cluster anchors
-    [cluster_anchor_coords, cluster_anchored_traj]=findDiffSizedAnchors(finalTrajmin5, localization_acc, cell_area);
+    [cluster_anchor_coords, cluster_anchored_traj]=findClusterAnchors(finalTrajmin5, localization_acc, cell_area);
     
     % Combine both types of anchors together
     [~, combined_anchor_coords, first_last_anchor_frames, converted_to_trajs]=combineAnchors(finalTrajmin5,cluster_anchor_coords,cluster_anchored_traj,immobile_coords,immobile_anchor_coords,immobile_anchored_spots,localization_acc);

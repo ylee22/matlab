@@ -56,7 +56,7 @@ function [ anchor_coords, anchored_traj ] = findClusterAnchors( finalTraj, local
             minAnchoredTraj = 2;
             probability = 1;
             while probability > 0.05
-                minAnchoredTraj = minAnchoredTraj+1;
+                minAnchoredTraj = minAnchoredTraj + 1;
                 probability = 1-poisscdf(minAnchoredTraj,traj_density);
             end
             anchored_traj{anchor_radius_idx} = filterTraj(anchored_traj{anchor_radius_idx}, minAnchoredTraj);

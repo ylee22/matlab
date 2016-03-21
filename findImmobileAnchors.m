@@ -57,20 +57,20 @@ function [ anchor_coords, anchored_spots, immobile_coords ] = findImmobileAnchor
     
     % Filter based on the minimum number of spots per anchor
     % Calculate the probability and the threshold for min spots/anchor
-    anchor_coords={};
-    for anchor_radius_idx=1:length(anchored_spots)
+    anchor_coords = {};
+    for anchor_radius_idx = 1:length(anchored_spots)
         if ~isempty(anchored_spots{anchor_radius_idx})
-            expected_number_of_immobile_spots=(length(immobile_coords)/cell_area)*pi*(20*anchor_radius_idx)^2;
-            minAnchoredSpots=2;
-            probability=1;
-            while probability>0.05
-                minAnchoredSpots=minAnchoredSpots+1;
-                probability=1-poisscdf(minAnchoredSpots,expected_number_of_immobile_spots);
+            expected_number_of_immobile_spots = (length(immobile_coords)/cell_area)*pi*(20*anchor_radius_idx)^2;
+            minAnchoredSpots = 2;
+            probability = 1;
+            while probability > 0.05
+                minAnchoredSpots = minAnchoredSpots+1;
+                probability = 1 - poisscdf(minAnchoredSpots,expected_number_of_immobile_spots);
             end
             anchored_spots{anchor_radius_idx} = filterTraj(anchored_spots{anchor_radius_idx}, minAnchoredSpots);
             if ~isempty(anchored_spots{anchor_radius_idx})
                 % Remake anchor coordinates
-                anchor_coords{anchor_radius_idx}=findImmobileAnchorCoord(anchored_spots{anchor_radius_idx},immobile_coords(:,4:5));
+                anchor_coords{anchor_radius_idx} = findImmobileAnchorCoord(anchored_spots{anchor_radius_idx},immobile_coords(:,4:5));
             end
         end
     end
@@ -79,18 +79,4 @@ function [ anchor_coords, anchored_spots, immobile_coords ] = findImmobileAnchor
 %     % anchor)
 %     anchoredTraj = convertSpotsIntoTraj(anchoredSpots, immobile_coords);
     
-end
-
-function anchoredTraj = convertSpotsIntoTraj(anchoredSpots, immobile_coords)
-anchoredTraj = cell(1,length(anchoredSpots));
-for anchor_size_idx = 1:length(anchoredSpots)
-    if ~isempty(anchoredSpots{anchor_size_idx})
-        temp = cell(1,length(anchoredSpots{anchor_size_idx}));
-        for anchoredSpots_idx = 1:length(anchoredSpots{anchor_size_idx})
-            temp{anchoredSpots_idx} = unique(immobile_coords(anchoredSpots{anchor_size_idx}{anchoredSpots_idx},1))';
-        end
-        anchoredTraj{anchor_size_idx} = temp;
-    end
-end
-
 end
