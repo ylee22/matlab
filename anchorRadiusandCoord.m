@@ -1,4 +1,4 @@
-function [ radius_and_coords, spot_to_traj ] = anchorRadiusandCoord(finalTraj,immobile_coords,spots,trajs,LOC_ACC,GLOBAL_DENSITY)
+function [ radius_and_coords, spot_to_traj ] = anchorRadiusandCoord(finalTraj,immobile_spot_coords,trajs,LOC_ACC,GLOBAL_DENSITY)
 %UNTITLED3 Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -8,9 +8,9 @@ function [ radius_and_coords, spot_to_traj ] = anchorRadiusandCoord(finalTraj,im
 % Immobile first before cluster, need to convert to traj
 
 % If both
-if ~isempty(spots) && ~isempty(trajs)
+if ~isempty(immobile_spot_coords) && ~isempty(trajs)
     % Convert to trajectories
-    spot_to_traj = unique(immobile_coords(spots,1))';
+    spot_to_traj = unique(immobile_spot_coords(:,1))';
     traj_list = cat(2,trajs,spot_to_traj);
     [anchored_coords, search_radius] = anchoredFrameCoords(finalTraj, traj_list);
 
@@ -33,22 +33,37 @@ if ~isempty(spots) && ~isempty(trajs)
         probability = 1 - poisscdf(min_points,expected_number_of_points);
     end
 % If only immobile
-elseif ~isempty(spots)
+elseif ~isempty(immobile_spot_coords)
     % Convert to trajectories
-    spot_to_traj = unique(immobile_coords(spots,1))';
+    spot_to_traj = unique(immobile_spot_coords(:,1))';
     [anchored_coords, ~] = anchoredFrameCoords(finalTraj, spot_to_traj);
 
+    % immobile_coords is the average between the two consecutive frames
+    % with distance less than the localization accuracy. Need to find the
+    % original coordinates used to find immobile_coords. These points will
+    % determine the minimum point to define a cluster and the search radius
+    % for DBSCAN.
+    spot_coords = zeros(size(immobile_spot_coords,1)*2,2);
+    counter = 1;
+    for traj_idx = 1:numel(spot_to_traj)
+        finalTraj_spots_idx = unique(immobile_spot_coords(immobile_spot_coords(:,1)==spot_to_traj(traj_idx),2:3));
+        spot_coords(counter:counter+numel(finalTraj_spots_idx)-1,:) = finalTraj{spot_to_traj(traj_idx)}(finalTraj_spots_idx,1:2);
+        counter = counter + numel(finalTraj_spots_idx);
+    end
+    % Sometimes there is a redundant spot (1 & 2, 2 & 3 = 1, 2, 3)
+    spot_coords = spot_coords(1:counter-1,:);
+    
     % Farthest distance between two immobile spots to approximate search
-    % radius
-    % localization error if the immobile spots are too close together
-    search_radius = max(max(pdist(immobile_coords(spots, 4:5))),LOC_ACC);
+    % radius. Use localization error instead if the immobile spots are too
+    % close together
+    search_radius = max(max(pdist(spot_coords)),LOC_ACC);
     
     % If DBSCAN doesn't find anything
     anchored_radius = search_radius;
 
     % The cluster has to have at minimum the number of immobile spots that were
     % found before
-    min_points = length(spots);
+    min_points = counter - 1;
     
 % If cluster only
 elseif ~isempty(trajs)
@@ -101,9 +116,9 @@ if max(IDX) > 1
         % Loop through every combination
         for idx1 = 1:size(anchors,1)
             for idx2 = idx1+1:size(anchors,1)
-                if dist_matrix(idx1,idx2) <= (radii(idx1) + radii(idx2))*1.2
+                if dist_matrix(idx1,idx2) <= max((radii(idx1) + radii(idx2))*1.2, LOC_ACC)
                     OVERLAP = 1;
-                    search_radius = search_radius + ceil(length(anchored_coords)*0.1);
+                    search_radius = search_radius + 1;
                     % Redo DBSCAN with larger search_radius
                     [IDX, ~] = DBSCAN_with_comments(anchored_coords,search_radius,min_points);
                 end

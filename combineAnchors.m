@@ -186,11 +186,11 @@ end
 % Clear out larger_anchor_coords variable. Will be storing anchor 
 % information here.
 
-total_number_of_points = 0;
-for row_idx = length(finalTraj)
-    total_number_of_points = total_number_of_points + size(finalTraj{row_idx},1);
+TOTAL_NUMBER_OF_POINTS = 0;
+for row_idx = 1:length(finalTraj)
+    TOTAL_NUMBER_OF_POINTS = TOTAL_NUMBER_OF_POINTS + size(finalTraj{row_idx},1);
 end
-GLOBAL_DENSITY = total_number_of_points/CELL_AREA;
+GLOBAL_DENSITY = TOTAL_NUMBER_OF_POINTS/CELL_AREA;
 
 larger_anchor_coords = zeros(2*length(flattened_trajs_spots),4);
 trajs = cell(1,2*length(flattened_trajs_spots));
@@ -202,7 +202,7 @@ for anchor_idx = 1:length(flattened_trajs_spots)
     if iscell(larger_coords)
         % If both
         if iscell(flattened_trajs_spots{anchor_idx})
-            [anchor_properties, converted_to_traj] = anchorRadiusandCoord(larger_coords,immobile_coords,flattened_trajs_spots{anchor_idx}{2}(2:end),flattened_trajs_spots{anchor_idx}{1}(2:end),LOC_ACC,GLOBAL_DENSITY);
+            [anchor_properties, converted_to_traj] = anchorRadiusandCoord(larger_coords,immobile_coords(flattened_trajs_spots{anchor_idx}{2}(2:end),:),flattened_trajs_spots{anchor_idx}{1}(2:end),LOC_ACC,GLOBAL_DENSITY);
             % Sometimes DBSCAN gives multiple anchors
             for z = 1:size(anchor_properties,1)
                 larger_anchor_coords(COUNTER,:) = anchor_properties(z,:);
@@ -211,7 +211,7 @@ for anchor_idx = 1:length(flattened_trajs_spots)
             end
         % If cluster only
         elseif flattened_trajs_spots{anchor_idx}(1) == -1
-            [anchor_properties, ~] = anchorRadiusandCoord(larger_coords,[],[],flattened_trajs_spots{anchor_idx}(2:end),LOC_ACC,GLOBAL_DENSITY);
+            [anchor_properties, ~] = anchorRadiusandCoord(larger_coords,[],flattened_trajs_spots{anchor_idx}(2:end),LOC_ACC,GLOBAL_DENSITY);
             % Sometimes DBSCAN gives multiple anchors
             for z = 1:size(anchor_properties,1)
                 larger_anchor_coords(COUNTER,:) = anchor_properties(z,:);
@@ -221,7 +221,7 @@ for anchor_idx = 1:length(flattened_trajs_spots)
         % If immobile only
         elseif flattened_trajs_spots{anchor_idx}(1) == -2
             % Immobile anchor radius and coordinates
-            [anchor_properties, converted_to_traj] = anchorRadiusandCoord(larger_coords,immobile_coords,flattened_trajs_spots{anchor_idx}(2:end),[],LOC_ACC,GLOBAL_DENSITY);
+            [anchor_properties, converted_to_traj] = anchorRadiusandCoord(larger_coords,immobile_coords(flattened_trajs_spots{anchor_idx}(2:end),:),[],LOC_ACC,GLOBAL_DENSITY);
             for z = 1:size(anchor_properties,1)
                 larger_anchor_coords(COUNTER,:) = anchor_properties(z,:);
                 trajs{COUNTER} = converted_to_traj;
@@ -234,7 +234,7 @@ for anchor_idx = 1:length(flattened_trajs_spots)
     else
         % If larger_coords is finalTraj and this anchor is immobile only
         if iscell(flattened_trajs_spots{anchor_idx})
-            [anchor_properties, converted_to_traj] = anchorRadiusandCoord(smaller_coords,immobile_coords,flattened_trajs_spots{anchor_idx}{1}(2:end),flattened_trajs_spots{anchor_idx}{2}(2:end),LOC_ACC,GLOBAL_DENSITY);
+            [anchor_properties, converted_to_traj] = anchorRadiusandCoord(smaller_coords,immobile_coords(flattened_trajs_spots{anchor_idx}{1}(2:end),:),flattened_trajs_spots{anchor_idx}{2}(2:end),LOC_ACC,GLOBAL_DENSITY);
             for z = 1:size(anchor_properties,1)
                 larger_anchor_coords(COUNTER,:) = anchor_properties(z,:);
                 trajs{COUNTER} = cat(2,flattened_trajs_spots{anchor_idx}{2}(2:end),converted_to_traj);
@@ -242,7 +242,7 @@ for anchor_idx = 1:length(flattened_trajs_spots)
             end
         % If immobile only
         elseif flattened_trajs_spots{anchor_idx}(1) == -1
-            [anchor_properties, converted_to_traj] = anchorRadiusandCoord(smaller_coords,immobile_coords,flattened_trajs_spots{anchor_idx}(2:end),[],LOC_ACC,GLOBAL_DENSITY);
+            [anchor_properties, converted_to_traj] = anchorRadiusandCoord(smaller_coords,immobile_coords(flattened_trajs_spots{anchor_idx}(2:end),:),[],LOC_ACC,GLOBAL_DENSITY);
             for z = 1:size(anchor_properties,1)
                 larger_anchor_coords(COUNTER,:) = anchor_properties(z,:);
                 trajs{COUNTER} = converted_to_traj;
@@ -250,7 +250,7 @@ for anchor_idx = 1:length(flattened_trajs_spots)
             end
         % If cluster only
         elseif flattened_trajs_spots{anchor_idx}(1) == -2
-            [anchor_properties, ~] = anchorRadiusandCoord(smaller_coords,[],[],flattened_trajs_spots{anchor_idx}(2:end),LOC_ACC,GLOBAL_DENSITY);
+            [anchor_properties, ~] = anchorRadiusandCoord(smaller_coords,[],flattened_trajs_spots{anchor_idx}(2:end),LOC_ACC,GLOBAL_DENSITY);
             for z = 1:size(anchor_properties,1)
                 larger_anchor_coords(COUNTER,:) = anchor_properties(z,:);
                 trajs{COUNTER} = flattened_trajs_spots{anchor_idx}(2:end);
