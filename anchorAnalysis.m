@@ -4,7 +4,8 @@ all_anchor_radii = [];
 localization_acc = 20;
 % cell area for 12-2-2015: 1.5*1.1*10^9
 % cell area for two color 2-19-2016: 2.5*10^8;
-cell_area = (128*127)^2;
+% cell area for EGF treatment = (128*127)^2;
+cell_area = 1.5*1.1*10^9;
 all_anchored_traj_length = [];
 all_free_traj_length = [];
 for movie_index=1:length(all_combFinalTrajs)
@@ -20,7 +21,7 @@ for movie_index=1:length(all_combFinalTrajs)
     
     % Combine both types of anchors together
     [~, combined_anchor_coords, first_last_anchor_frames, converted_to_trajs]=combineAnchors(finalTrajmin5,cluster_anchor_coords,cluster_anchored_traj,immobile_coords,immobile_anchor_coords,immobile_anchored_spots,localization_acc);
-
+    
     % Find the length of all trajectories
     all_traj_length = zeros(1,length(finalTrajmin5));
     for trajID = 1:length(finalTrajmin5)

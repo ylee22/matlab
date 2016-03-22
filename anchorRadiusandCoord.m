@@ -1,6 +1,26 @@
 function [ radius_and_coords, spot_to_traj ] = anchorRadiusandCoord(finalTraj,immobile_spot_coords,trajs,LOC_ACC,GLOBAL_DENSITY)
-%UNTITLED3 Summary of this function goes here
-%   Detailed explanation goes here
+% Summary: This function takes the parameters that were used to find an
+% anchor (either trajectories or immobile spots or both) and uses DBSCAN to
+% define anchor center and the radius.
+% Inputs:
+%   findTraj: the connected and filtered (re-connecting segmented
+%   trajectories and filtered often times by the trajectory length) vbSPT
+%   format output from Tao's Single Molecule Trajectory package. It's a
+%   cell array with each row containing a matrix of trajectory information.
+%   immobile_spot_coords: the slice of the immobile_coords with the spots
+%   used to find the anchor
+%   trajs: trajectory indices in finalTraj that were used to find the
+%   anchor
+%   LOC_ACC: a positive integer in nms to define the localization accuracy
+%   of the movie. Used to define the search radius and merging anchors.
+%   GLOBAL_DENSITY: a positive number for the density of all of the
+%   coordinates in this system (total number of coordinates/area occupied
+%   by the cell(s) in the movie)
+% Outputs:
+%   radius_and_coords: n by 4 matrix with [radius, anchor x coord, anchor y
+%   coord, cluster index number from DBSCAN]
+%   spot_to_traj: spots (immobile_coord indices) converted to trajectories
+%   (finalTraj indices)
 
 % if immobile_coords is not empty and the spots are not cell, then immobile
 % only, if immobile_coords is empty, then cluster only, if immobile_coords
@@ -21,8 +41,6 @@ if ~isempty(immobile_spot_coords) && ~isempty(trajs)
     search_radius = median(search_radius);
     % Use poisson distribution for the minimum points to define an anchor
     anchored_radius = max(pdist(anchored_coords))/2;
-%     expected_number_of_points = length(anchored_coords)/(pi*anchored_radius^2)*pi*search_radius^2;
-%     min_points = ceil(length(anchored_coords)/100);
 
     expected_number_of_points = GLOBAL_DENSITY*pi*search_radius^2;
     min_points = 2;
@@ -44,14 +62,14 @@ elseif ~isempty(immobile_spot_coords)
     % determine the minimum point to define a cluster and the search radius
     % for DBSCAN.
     spot_coords = zeros(size(immobile_spot_coords,1)*2,2);
-    counter = 1;
+    COUNTER = 1;
     for traj_idx = 1:numel(spot_to_traj)
         finalTraj_spots_idx = unique(immobile_spot_coords(immobile_spot_coords(:,1)==spot_to_traj(traj_idx),2:3));
-        spot_coords(counter:counter+numel(finalTraj_spots_idx)-1,:) = finalTraj{spot_to_traj(traj_idx)}(finalTraj_spots_idx,1:2);
-        counter = counter + numel(finalTraj_spots_idx);
+        spot_coords(COUNTER:COUNTER+numel(finalTraj_spots_idx)-1,:) = finalTraj{spot_to_traj(traj_idx)}(finalTraj_spots_idx,1:2);
+        COUNTER = COUNTER + numel(finalTraj_spots_idx);
     end
     % Sometimes there is a redundant spot (1 & 2, 2 & 3 = 1, 2, 3)
-    spot_coords = spot_coords(1:counter-1,:);
+    spot_coords = spot_coords(1:COUNTER-1,:);
     
     % Farthest distance between two immobile spots to approximate search
     % radius. Use localization error instead if the immobile spots are too
@@ -63,7 +81,7 @@ elseif ~isempty(immobile_spot_coords)
 
     % The cluster has to have at minimum the number of immobile spots that were
     % found before
-    min_points = counter - 1;
+    min_points = COUNTER - 1;
     
 % If cluster only
 elseif ~isempty(trajs)
@@ -77,8 +95,6 @@ elseif ~isempty(trajs)
     search_radius = median(search_radius);
     % Use poisson distribution for the minimum points to define an anchor
     anchored_radius = max(pdist(anchored_coords))/2;
-%     expected_number_of_points = length(anchored_coords)/(pi*anchored_radius^2)*pi*search_radius^2;
-%     min_points = ceil(length(anchored_coords)/100);
 
     expected_number_of_points = GLOBAL_DENSITY*pi*search_radius^2;
     min_points = 2;
@@ -128,9 +144,13 @@ if max(IDX) > 1
 end
 
 % Define anchor center for each cluster
-if max(IDX) == 0
-    radius_and_coords = [anchored_radius, mean(anchored_coords), 0];
-else
+
+% If I wanted to save anchors that DBSCAN couldn't find
+% if max(IDX) == 0
+%     radius_and_coords = [anchored_radius, mean(anchored_coords), 0];
+
+% Save only the anchors that were found by DBSCAN
+if max(IDX) > 0
     radius_and_coords = zeros(max(IDX),4);
     for i=1:max(IDX)
         % Find anchor center
