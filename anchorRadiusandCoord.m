@@ -31,7 +31,7 @@ function [ radius_and_coords, spot_to_traj ] = anchorRadiusandCoord(finalTraj,im
 if ~isempty(immobile_spot_coords) && ~isempty(trajs)
     % Convert to trajectories
     spot_to_traj = unique(immobile_spot_coords(:,1))';
-    traj_list = cat(2,trajs,spot_to_traj);
+    traj_list = unique([trajs,spot_to_traj]);
     [anchored_coords, search_radius] = anchoredFrameCoords(finalTraj, traj_list);
 
     % Find anchor center and radius here
@@ -39,11 +39,23 @@ if ~isempty(immobile_spot_coords) && ~isempty(trajs)
     % search radius is the median of all of the step sizes taken by the
     % anchored trajectories
     search_radius = median(search_radius);
-    % Use poisson distribution for the minimum points to define an anchor
-    anchored_radius = max(pdist(anchored_coords))/2;
+    
+    % If DBSCAN doesn't find anything
+%     anchored_radius = max(pdist(anchored_coords))/2;
 
+    % immobile_coords is the average between the two consecutive frames
+    % with distance less than the localization accuracy. Need to find the
+    % original coordinates used to find immobile_coords. These points will
+    % determine the minimum point to define a cluster and the search radius
+    % for DBSCAN. Sometimes there is a redundant spot (1 & 2, 2 & 3 = 1, 2, 3)
+    min_points = 0;
+    for traj_idx = 1:numel(spot_to_traj)
+        min_points = min_points + numel(unique(immobile_spot_coords(immobile_spot_coords(:,1)==spot_to_traj(traj_idx),2:3)));
+    end
+    min_points = min_points - 1;
+
+    % Use poisson distribution for the minimum points to define an anchor
     expected_number_of_points = GLOBAL_DENSITY*pi*search_radius^2;
-    min_points = 2;
 
     probability = 1;
     while probability > 0.05 && min_points < length(anchored_coords);
@@ -77,7 +89,7 @@ elseif ~isempty(immobile_spot_coords)
     search_radius = max(max(pdist(spot_coords)),LOC_ACC);
     
     % If DBSCAN doesn't find anything
-    anchored_radius = search_radius;
+%     anchored_radius = search_radius;
 
     % The cluster has to have at minimum the number of immobile spots that were
     % found before
@@ -93,9 +105,11 @@ elseif ~isempty(trajs)
     % search radius is the median of all of the step sizes taken by the
     % anchored trajectories
     search_radius = median(search_radius);
-    % Use poisson distribution for the minimum points to define an anchor
-    anchored_radius = max(pdist(anchored_coords))/2;
+    
+    % If DBSCAN doesn't find anything
+%     anchored_radius = max(pdist(anchored_coords))/2;
 
+    % Use poisson distribution for the minimum points to define an anchor
     expected_number_of_points = GLOBAL_DENSITY*pi*search_radius^2;
     min_points = 2;
 
@@ -160,6 +174,8 @@ if max(IDX) > 0
         % Save to a variable
         radius_and_coords(i,:) = [radius, x_y_anchor_coord, i];
     end
+else
+    radius_and_coords = [];
 end
 
 end

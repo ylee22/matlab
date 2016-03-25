@@ -4,7 +4,7 @@ function filteredTraj = filterTraj(allTraj, minAnchoredTraj)
     counter = 0;
     
     for m = 1:length(allTraj)
-        if length(allTraj{m}) >= minAnchoredTraj
+        if numel(allTraj{m}) >= minAnchoredTraj
             counter = counter + 1;
             filteredTraj{counter} = allTraj{m};
         end
