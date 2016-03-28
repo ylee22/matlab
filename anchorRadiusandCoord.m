@@ -76,12 +76,12 @@ elseif ~isempty(immobile_spot_coords)
     spot_coords = zeros(size(immobile_spot_coords,1)*2,2);
     COUNTER = 1;
     for traj_idx = 1:numel(spot_to_traj)
-        finalTraj_spots_idx = unique(immobile_spot_coords(immobile_spot_coords(:,1)==spot_to_traj(traj_idx),2:3));
-        spot_coords(COUNTER:COUNTER+numel(finalTraj_spots_idx)-1,:) = finalTraj{spot_to_traj(traj_idx)}(finalTraj_spots_idx,1:2);
-        COUNTER = COUNTER + numel(finalTraj_spots_idx);
+        finalTraj_spot_idx = unique(immobile_spot_coords(immobile_spot_coords(:,1)==spot_to_traj(traj_idx),2:3));
+        spot_coords(COUNTER:COUNTER+numel(finalTraj_spot_idx)-1,:) = finalTraj{spot_to_traj(traj_idx)}(finalTraj_spot_idx,1:2);
+        COUNTER = COUNTER + numel(finalTraj_spot_idx);
     end
     % Sometimes there is a redundant spot (1 & 2, 2 & 3 = 1, 2, 3)
-    spot_coords = spot_coords(1:COUNTER-1,:);
+    spot_coords = spot_coords(1:COUNTER - 1, :);
     
     % Farthest distance between two immobile spots to approximate search
     % radius. Use localization error instead if the immobile spots are too
@@ -178,15 +178,4 @@ else
     radius_and_coords = [];
 end
 
-end
-
-function [traj_coords, frame_displacement] = anchoredFrameCoords(finalTrajCoords, finalTrajIdx)
-% Returns a n by 2 matrix of just x, y coordinates of all of the anchored
-% trajectories
-traj_coords = finalTrajCoords{finalTrajIdx(1)}(:,1:2);
-frame_displacement = dispAdjFrames({traj_coords});
-for trajs = 2:length(finalTrajIdx)
-    traj_coords = cat(1, traj_coords, finalTrajCoords{finalTrajIdx(trajs)}(:,1:2));
-    frame_displacement = cat(2, frame_displacement, dispAdjFrames({traj_coords}));
-end
 end

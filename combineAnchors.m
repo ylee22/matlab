@@ -309,7 +309,13 @@ while DUPLICATE_MARKER
             current_anchor = -trajs{overlaps(i,1)}(1);
             merged_anchor = -trajs{overlaps(i,2)}(1);
             flattened_trajs_spots{current_anchor} = combineTrajsandSpots(flattened_trajs_spots{current_anchor},flattened_trajs_spots{merged_anchor});
-            flattened_trajs_spots{merged_anchor} = [];
+            
+            % Sometimes, one anchor that was split into two by the first
+            % DBSCAN overlaps after one of the anchors increased in side
+            % after merging with a different anchor
+            if current_anchor ~= merged_anchor
+                flattened_trajs_spots{merged_anchor} = [];
+            end
 
             % Combine trajectories here
             combined_trajs = unique([trajs{overlaps(i,1)}, trajs{overlaps(i,2)}(2:end)]);
@@ -357,7 +363,7 @@ while DUPLICATE_MARKER
                     end
                 else
                     % Cluster
-                    [anchor_properties, ~] = anchorRadiusandCoord(larger_coords,[],flattened_trajs_spots{current_anchor}{1}(2:end),LOC_ACC,GLOBAL_DENSITY);
+                    [anchor_properties, ~] = anchorRadiusandCoord(larger_coords,[],flattened_trajs_spots{current_anchor}(2:end),LOC_ACC,GLOBAL_DENSITY);
                     for z = 1:size(anchor_properties,1)
                         larger_anchor_coords(end+1,:) = anchor_properties(z,:);
                         % Filter out for duplicated trajs (can happen with immobile spots)
@@ -383,7 +389,7 @@ while DUPLICATE_MARKER
                     end
                 else
                     % Cluster
-                    [anchor_properties, ~] = anchorRadiusandCoord(smaller_coords,[],flattened_trajs_spots{current_anchor}{2}(2:end),LOC_ACC,GLOBAL_DENSITY);
+                    [anchor_properties, ~] = anchorRadiusandCoord(smaller_coords,[],flattened_trajs_spots{current_anchor}(2:end),LOC_ACC,GLOBAL_DENSITY);
                     for z = 1:size(anchor_properties,1)
                         larger_anchor_coords(end+1,:) = anchor_properties(z,:);
                         % Filter out for duplicated trajs (can happen with immobile spots)
@@ -411,7 +417,7 @@ end
 % 7. Find anchor duration for anchors with more than one anchored
 % trajectory
 
-% Find anchor duration Get the starting and the ending frame numbers for
+% Find anchor duration. Get the starting and the ending frame numbers for
 % all of the trajectories in each anchor
 anchor_frames = frameNumbers(trajs, finalTraj);
 
@@ -469,14 +475,13 @@ frame_idx = 0;
 for a = 1:numel(anchored_trajectories)
     % Screen for anchors with more than one trajectory, the first element
     % is a marker for flattened_trajs_spots
-    if numel(anchored_trajectories{a}) > 3
+    if numel(anchored_trajectories{a}) > 2
         frame_idx = frame_idx + 1;
-        % 3 columns: anchor row ID, first, last
-        % The first element is negative (the corresponding index in
-        % flattened_trajs_spots)
+        % 3 columns: anchor row ID, first, last The first element is
+        % negative (the corresponding index in flattened_trajs_spots)
         firstandlast = zeros(numel(anchored_trajectories{a}) - 1, 3);
         for b = 2:numel(anchored_trajectories{a})
-            firstandlast(b,:) = [a, allTraj{anchored_trajectories{a}(b)}(1,6:7)];
+            firstandlast(b-1,:) = [a, allTraj{anchored_trajectories{a}(b)}(1,6:7)];
         end
         anchor_frames{frame_idx} = firstandlast;
     end
@@ -489,26 +494,6 @@ function first_last_frames = firstLastFrame(anchor_frames)
 first_last_frames = zeros(length(anchor_frames), 3);
 for q = 1:length(anchor_frames)
     first_last_frames(q,:)=[anchor_frames{q}(1,1), min(anchor_frames{q}(:,2)), max(anchor_frames{q}(:,3))];
-end
-end
-
-
-function frame_by_frame_displacement = adjacentFrameDisplacement(coordinates)
-frame_by_frame_displacement = zeros(length(coordinates)-1,1);
-for i=1:length(coordinates)-1
-    frame_by_frame_displacement(i) = pdist2(coordinates(i,:),coordinates(i+1,:));
-end
-end
-
-
-function [traj_coords, frame_displacement] = anchoredFrameCoords(finalTrajCoords, finalTrajIdx)
-% Returns a n by 2 matrix of just x, y coordinates of all of the anchored
-% trajectories
-traj_coords = finalTrajCoords{finalTrajIdx(1)}(:,1:2);
-frame_displacement = adjacentFrameDisplacement(traj_coords);
-for trajs = 2:length(finalTrajIdx)
-    traj_coords = cat(1, traj_coords, finalTrajCoords{finalTrajIdx(trajs)}(:,1:2));
-    frame_displacement = cat(1, frame_displacement, adjacentFrameDisplacement(traj_coords));
 end
 end
 
