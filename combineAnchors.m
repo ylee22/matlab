@@ -303,6 +303,7 @@ while DUPLICATE_MARKER
         % If there are empty trajectories, that means DUPLICATE_MARKER = 1
         if isempty(trajs{overlaps(i,1)}) || isempty(trajs{overlaps(i,2)})
             continue
+
         else
         
             % The merged anchor index for flattened_trajs_spots
@@ -314,34 +315,22 @@ while DUPLICATE_MARKER
             % DBSCAN overlaps after one of the anchors increased in side
             % after merging with a different anchor
             if current_anchor ~= merged_anchor
-                flattened_trajs_spots{merged_anchor} = [];
+                flattened_trajs_spots{merged_anchor} = [];               
             end
 
             % Combine trajectories here
             combined_trajs = unique([trajs{overlaps(i,1)}, trajs{overlaps(i,2)}(2:end)]);
 
+            % Remove trajectories and anchor coordinates associated with
+            % both current and merged rows of flattened_trajs_spots, since
+            % current and merged will both be remade in the next DBSCAN run
+            [larger_anchor_coords, trajs] = removeRedundantTrajsandCoords(overlaps(i,1), trajs, larger_anchor_coords);
+            [larger_anchor_coords, trajs] = removeRedundantTrajsandCoords(overlaps(i,2), trajs, larger_anchor_coords);
+            
             % Mark old coordinates and trajs for deletion
             larger_anchor_coords(overlaps(i,:),:) = NaN;
             trajs{overlaps(i,1)} = [];
             trajs{overlaps(i,2)} = [];        
-
-%             % 2. FIX ANCHORRADIUSANDCOORD SO THAT IT CAN TAKE TRAJECTORIES ONLY FIX IMMOBILE ONLY ANCHORS
-%             if iscell(larger_coords)
-%                 [anchor_properties, ~] = anchorRadiusandCoord(larger_coords,[],combined_trajs,LOC_ACC,GLOBAL_DENSITY);
-%                 for z = 1:size(anchor_properties,1)
-%                     larger_anchor_coords(end+1,:) = anchor_properties(z,:);
-%                     % Filter out for duplicated trajs (can happen with immobile spots)
-%                     trajs{end+1} = unique(combined_trajs);
-%                 end
-%             else
-%                 [anchor_properties, ~] = anchorRadiusandCoord(smaller_coords,[],combined_trajs,LOC_ACC,GLOBAL_DENSITY);
-%                 for z = 1:size(anchor_properties,1)
-%                     larger_anchor_coords(end+1,:) = anchor_properties(z,:);
-%                     % Filter out for duplicated trajs (can happen with immobile spots)
-%                     trajs{end+1} = unique(combined_trajs);
-%                 end
-%             end
-%         end
 
             if iscell(larger_coords)
                 % Replace, remake center and radius
@@ -427,74 +416,93 @@ first_last_anchor_frames = firstLastFrame(anchor_frames);
 end
 
 
-function combined_trajs_and_spots = combineTrajsandSpots(trajs_and_spots1, trajs_and_spots2)
-if iscell(trajs_and_spots1)
-    if iscell(trajs_and_spots2)
-        combined_trajs_and_spots = {unique([trajs_and_spots1{1}, trajs_and_spots2{1}(2:end)]), unique([trajs_and_spots1{2}, trajs_and_spots2{2}(2:end)])};
-    elseif trajs_and_spots2(1) == -1
-        combined_trajs_and_spots = {unique([trajs_and_spots1{1}, trajs_and_spots2(2:end)]), trajs_and_spots1{2}};
-    elseif trajs_and_spots2(1) == -2
-        combined_trajs_and_spots = {trajs_and_spots1{1}, unique([trajs_and_spots1{2}, trajs_and_spots2(2:end)])};
-    else
-        error('Marker does not exist')
+function [larger_anchor_coords, trajs] = removeRedundantTrajsandCoords(row_idx, trajs, larger_anchor_coords)
+    WINDOW = 1;
+    while WINDOW
+        % Anchors from the same source are added next to each other
+        if trajs{row_idx - WINDOW}(1) == trajs{row_idx}(1)
+            larger_anchor_coords(row_idx - WINDOW,:) = NaN;
+            trajs{row_idx - WINDOW} = [];
+            WINDOW = WINDOW + 1;
+        elseif trajs{row_idx + WINDOW}(1) == trajs{row_idx}(1)
+            larger_anchor_coords(row_idx + WINDOW,:) = NaN;
+            trajs{row_idx + WINDOW} = [];
+            WINDOW = WINDOW + 1;
+        else
+            WINDOW = 0;
+        end
     end
-    
-elseif trajs_and_spots1(1) == -1
-    if iscell(trajs_and_spots2)
-        combined_trajs_and_spots = {unique([trajs_and_spots2{1}, trajs_and_spots1(2:end)]), trajs_and_spots2{2}};
-    elseif trajs_and_spots2(1) == -1
-        combined_trajs_and_spots = unique([trajs_and_spots1, trajs_and_spots2(2:end)]);
-    elseif trajs_and_spots2(1) == -2
-        combined_trajs_and_spots = {trajs_and_spots1, trajs_and_spots2};
-    else
-        error('Marker does not exist')
-    end
-    
-elseif trajs_and_spots1(1) == -2
-    if iscell(trajs_and_spots2)
-        combined_trajs_and_spots = {trajs_and_spots2{1}, unique([trajs_and_spots2{2}, trajs_and_spots1(2:end)])};
-    elseif trajs_and_spots2(1) == -1
-        combined_trajs_and_spots = {trajs_and_spots2, trajs_and_spots1};
-    elseif trajs_and_spots2(1) == -2
-        combined_trajs_and_spots = unique([trajs_and_spots1, trajs_and_spots2(2:end)]);
-    else
-        error('Marker does not exist')
-    end
-    
-else
-    error('Marker does not exist')
 end
+
+
+function combined_trajs_and_spots = combineTrajsandSpots(trajs_and_spots1, trajs_and_spots2)
+    if iscell(trajs_and_spots1)
+        if iscell(trajs_and_spots2)
+            combined_trajs_and_spots = {unique([trajs_and_spots1{1}, trajs_and_spots2{1}(2:end)]), unique([trajs_and_spots1{2}, trajs_and_spots2{2}(2:end)])};
+        elseif trajs_and_spots2(1) == -1
+            combined_trajs_and_spots = {unique([trajs_and_spots1{1}, trajs_and_spots2(2:end)]), trajs_and_spots1{2}};
+        elseif trajs_and_spots2(1) == -2
+            combined_trajs_and_spots = {trajs_and_spots1{1}, unique([trajs_and_spots1{2}, trajs_and_spots2(2:end)])};
+        else
+            error('Marker does not exist')
+        end
+
+    elseif trajs_and_spots1(1) == -1
+        if iscell(trajs_and_spots2)
+            combined_trajs_and_spots = {unique([trajs_and_spots2{1}, trajs_and_spots1(2:end)]), trajs_and_spots2{2}};
+        elseif trajs_and_spots2(1) == -1
+            combined_trajs_and_spots = unique([trajs_and_spots1, trajs_and_spots2(2:end)]);
+        elseif trajs_and_spots2(1) == -2
+            combined_trajs_and_spots = {trajs_and_spots1, trajs_and_spots2};
+        else
+            error('Marker does not exist')
+        end
+
+    elseif trajs_and_spots1(1) == -2
+        if iscell(trajs_and_spots2)
+            combined_trajs_and_spots = {trajs_and_spots2{1}, unique([trajs_and_spots2{2}, trajs_and_spots1(2:end)])};
+        elseif trajs_and_spots2(1) == -1
+            combined_trajs_and_spots = {trajs_and_spots2, trajs_and_spots1};
+        elseif trajs_and_spots2(1) == -2
+            combined_trajs_and_spots = unique([trajs_and_spots1, trajs_and_spots2(2:end)]);
+        else
+            error('Marker does not exist')
+        end
+
+    else
+        error('Marker does not exist')
+    end
 
 end
 
 
 % Get the starting and the ending frame numbers for all of the trajectories in each anchor
 function anchor_frames = frameNumbers(anchored_trajectories, allTraj)
-anchor_frames = cell(1,sum(cellfun(@length, anchored_trajectories) > 2));
-frame_idx = 0;
-for a = 1:numel(anchored_trajectories)
-    % Screen for anchors with more than one trajectory, the first element
-    % is a marker for flattened_trajs_spots
-    if numel(anchored_trajectories{a}) > 2
-        frame_idx = frame_idx + 1;
-        % 3 columns: anchor row ID, first, last The first element is
-        % negative (the corresponding index in flattened_trajs_spots)
-        firstandlast = zeros(numel(anchored_trajectories{a}) - 1, 3);
-        for b = 2:numel(anchored_trajectories{a})
-            firstandlast(b-1,:) = [a, allTraj{anchored_trajectories{a}(b)}(1,6:7)];
+    anchor_frames = cell(1,sum(cellfun(@length, anchored_trajectories) > 2));
+    frame_idx = 0;
+    for a = 1:numel(anchored_trajectories)
+        % Screen for anchors with more than one trajectory, the first element
+        % is a marker for flattened_trajs_spots
+        if numel(anchored_trajectories{a}) > 2
+            frame_idx = frame_idx + 1;
+            % 3 columns: anchor row ID, first, last The first element is
+            % negative (the corresponding index in flattened_trajs_spots)
+            firstandlast = zeros(numel(anchored_trajectories{a}) - 1, 3);
+            for b = 2:numel(anchored_trajectories{a})
+                firstandlast(b-1,:) = [a, allTraj{anchored_trajectories{a}(b)}(1,6:7)];
+            end
+            anchor_frames{frame_idx} = firstandlast;
         end
-        anchor_frames{frame_idx} = firstandlast;
     end
-end
 end
 
 
 % Find the first and the last frame for each anchor
 function first_last_frames = firstLastFrame(anchor_frames)
-first_last_frames = zeros(length(anchor_frames), 3);
-for q = 1:length(anchor_frames)
-    first_last_frames(q,:)=[anchor_frames{q}(1,1), min(anchor_frames{q}(:,2)), max(anchor_frames{q}(:,3))];
-end
+    first_last_frames = zeros(length(anchor_frames), 3);
+    for q = 1:length(anchor_frames)
+        first_last_frames(q,:)=[anchor_frames{q}(1,1), min(anchor_frames{q}(:,2)), max(anchor_frames{q}(:,3))];
+    end
 end
 
 
@@ -502,39 +510,39 @@ function [combined_trajs, larger_anchor_trajs, larger_anchor_coords, smaller_anc
 % Combines anchored trajectories to the larger array and removes combined
 % anchor coordinates and trajectories
 % Will generate new anchor coordinates after this function is called
-combined_trajs = {};
-kd_tree = KDTreeSearcher(smaller_anchor_coords);
-overlapping_anchors = rangesearch(kd_tree,larger_anchor_coords,SEARCH_RADIUS);
+    combined_trajs = {};
+    kd_tree = KDTreeSearcher(smaller_anchor_coords);
+    overlapping_anchors = rangesearch(kd_tree,larger_anchor_coords,SEARCH_RADIUS);
 
-for larger_anchor_idx = 1:length(larger_anchor_trajs)
-    % If there are overlapping smaller anchors
-    if ~isempty(overlapping_anchors{larger_anchor_idx})
-        smaller_anchors = overlapping_anchors{larger_anchor_idx};
-        
-        % Hold combined trajectories in the combined_trajs variable
-        % LARGER AND SMALLER HERE DOESN'T MEAN THE ONE THAT'S
-        % GETTING MERGED AND THE ARRAY THAT'S GOING TO REMAIN
-        
-        for small_idx = 1:length(smaller_anchors)
-            if ~isempty(smaller_anchor_trajs{smaller_anchors(small_idx)})
-                combined_trajs_and_spots = combineTrajsandSpots(larger_anchor_trajs{larger_anchor_idx},smaller_anchor_trajs{smaller_anchors(small_idx)});
-                combined_trajs{end+1} = combined_trajs_and_spots;
-                % Remove smaller anchor trajs/spots
-                smaller_anchor_trajs{smaller_anchors(small_idx)} = [];
+    for larger_anchor_idx = 1:length(larger_anchor_trajs)
+        % If there are overlapping smaller anchors
+        if ~isempty(overlapping_anchors{larger_anchor_idx})
+            smaller_anchors = overlapping_anchors{larger_anchor_idx};
+
+            % Hold combined trajectories in the combined_trajs variable
+            % LARGER AND SMALLER HERE DOESN'T MEAN THE ONE THAT'S
+            % GETTING MERGED AND THE ARRAY THAT'S GOING TO REMAIN
+
+            for small_idx = 1:length(smaller_anchors)
+                if ~isempty(smaller_anchor_trajs{smaller_anchors(small_idx)})
+                    combined_trajs_and_spots = combineTrajsandSpots(larger_anchor_trajs{larger_anchor_idx},smaller_anchor_trajs{smaller_anchors(small_idx)});
+                    combined_trajs{end+1} = combined_trajs_and_spots;
+                    % Remove smaller anchor trajs/spots
+                    smaller_anchor_trajs{smaller_anchors(small_idx)} = [];
+                end
             end
-        end
-        
-        % Remove larger anchor trajs/spots
-        larger_anchor_trajs{larger_anchor_idx} = [];
-    end
-end
 
-% Remove the anchor coordinates that's been merged
-smaller_anchor_coords = smaller_anchor_coords(~cellfun(@isempty,smaller_anchor_trajs),:);
-larger_anchor_coords = larger_anchor_coords(~cellfun(@isempty,larger_anchor_trajs),:);
-% Get rid of empty arrays in smaller anchor trajectories
-smaller_anchor_trajs = filterTraj(smaller_anchor_trajs,1);
-larger_anchor_trajs = filterTraj(larger_anchor_trajs,1);
+            % Remove larger anchor trajs/spots
+            larger_anchor_trajs{larger_anchor_idx} = [];
+        end
+    end
+
+    % Remove the anchor coordinates that's been merged
+    smaller_anchor_coords = smaller_anchor_coords(~cellfun(@isempty,smaller_anchor_trajs),:);
+    larger_anchor_coords = larger_anchor_coords(~cellfun(@isempty,larger_anchor_trajs),:);
+    % Get rid of empty arrays in smaller anchor trajectories
+    smaller_anchor_trajs = filterTraj(smaller_anchor_trajs,1);
+    larger_anchor_trajs = filterTraj(larger_anchor_trajs,1);
         
 end
 

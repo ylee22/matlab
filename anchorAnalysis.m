@@ -1,4 +1,4 @@
-all_combFinalTrajs = who('combFinalTraj*');
+all_combined_final_trajs = who('combFinalTraj*');
 radius_and_duration = [];
 all_anchor_radii = [];
 localization_acc = 20;
@@ -9,11 +9,14 @@ cell_area = (128*127)^2;
 all_anchored_traj_length = [];
 all_free_traj_length = [];
 outside_anchor_trajs = [];
-for movie_index=1:length(all_combFinalTrajs)
-    % Filter by trajectory length
-    current_combFinalTraj=eval(all_combFinalTrajs{movie_index});
-    finalTrajmin5=minimumTrajLength(current_combFinalTraj,5);
+for movie_index=1:length(all_combined_final_trajs)
+    % Clear variables, just in case
+    clearvars immobile_anchor_coords immobile_anchored_spots immobile_coords cluster_anchor_coords cluster_anchored_traj combined_anchor_coords first_last_anchor_frames converted_to_trajs current_combined_final_traj finalTrajmin5
     
+    % Filter by trajectory length
+    current_combined_final_traj=eval(all_combined_final_trajs{movie_index});
+    finalTrajmin5=minimumTrajLength(current_combined_final_traj,5);
+       
     % Find immobile anchors
     [immobile_anchor_coords, immobile_anchored_spots, immobile_coords]=findImmobileAnchors(finalTrajmin5, localization_acc, cell_area);
     
@@ -22,6 +25,7 @@ for movie_index=1:length(all_combFinalTrajs)
     
     % Combine both types of anchors together
     [~, combined_anchor_coords, first_last_anchor_frames, converted_to_trajs]=combineAnchors(finalTrajmin5,cluster_anchor_coords,cluster_anchored_traj,immobile_coords,immobile_anchor_coords,immobile_anchored_spots,localization_acc, cell_area);
+    
     
     % Find the length of all trajectories
     all_traj_length = zeros(1,length(finalTrajmin5));
@@ -34,83 +38,91 @@ for movie_index=1:length(all_combFinalTrajs)
     anchored_traj_rows = zeros(1,sum(cellfun(@numel,converted_to_trajs))-numel(converted_to_trajs));
     COUNTER = 1;
     for anchorID = 1:numel(converted_to_trajs)
-                
+        % Unpack trajectory array        
         current_trajs = converted_to_trajs{anchorID}(2:end);
-        % Unpack trajectory array
         anchored_traj_rows(COUNTER:COUNTER+numel(current_trajs)-1) = current_trajs;
         COUNTER = COUNTER + numel(current_trajs);
         
-%         radius = combined_anchor_coords(anchorID, 1);
-%         anchor_coords = combined_anchor_coords(anchorID, 2:3);
-%         
+        radius = combined_anchor_coords(anchorID, 1);
+        anchor_coords = combined_anchor_coords(anchorID, 2:3);
+
 %         % Plot
 %         figure
 %         plotTrajectories(finalTrajmin5(current_trajs))
 %         ang=0:0.01:2*pi;
 %         hold on;
 %         plot(anchor_coords(1,1)+radius*cos(ang),anchor_coords(1,2)+radius*sin(ang),'r')        
-%         
-%         % Find the number of consecutive frames anchored traj spends
-%         % within their anchor
-%         for traj_idx = 1:numel(current_trajs)
-%             traj = current_trajs(traj_idx);
-%             traj_x_y = finalTrajmin5{traj}(:, 1:2);
-% 
-%             % Trajectory needs to start and finish outside of an anchor
-%             % Check the first and the last frame of the trajectory to see
-%             % if it's outside of the anchor boundary
-%             if (traj_x_y(1,1)<(anchor_coords(1)-radius) || traj_x_y(1,1)>(anchor_coords(1)+radius) || traj_x_y(1,2)<(anchor_coords(2)-radius) || traj_x_y(1,2)>(anchor_coords(2)+radius)) && (traj_x_y(end,1)<(anchor_coords(1)-radius) || traj_x_y(end,1)>(anchor_coords(1)+radius) || traj_x_y(end,2)<(anchor_coords(2)-radius) || traj_x_y(end,2)>(anchor_coords(2)+radius))
-%                 % Find the duration that it stayed within the anchor
-%                 frame_idx = 1;
-%                 first_frame = 0;
-%                 while frame_idx && frame_idx <= size(traj_x_y,1)
-%                     % Find the first frame where it enters the anchor: x
-%                     % and y coordinates must be within the anchor boundary
-%                     if traj_x_y(frame_idx,1)>=(anchor_coords(1)-radius) && traj_x_y(frame_idx,1)<=(anchor_coords(1)+radius) && traj_x_y(frame_idx,2)>=(anchor_coords(2)-radius) && traj_x_y(frame_idx,2)<=(anchor_coords(2)+radius)
-%                         first_frame = frame_idx;
-%                         consec_frames = first_frame + 1;
-%                         % Count the number of frames it stays within the
-%                         % anchor
-%                         while traj_x_y(consec_frames,1)>=(anchor_coords(1)-radius) && traj_x_y(consec_frames,1)<=(anchor_coords(1)+radius) && traj_x_y(consec_frames,2)>=(anchor_coords(2)-radius) && traj_x_y(consec_frames,2)<=(anchor_coords(2)+radius)
-%                             consec_frames = consec_frames + 1;
-%                         end
-%                         last_frame = consec_frames - 1;
-%                     % Continue searching
-%                     else
-%                         frame_idx = frame_idx + 1;
-%                     end
-%                     
-%                     % If the anchored frames have been found
-%                     if first_frame > 0
-%                         % Skip cases where the trajectory didn't stay in the anchor
-%                         if first_frame == last_frame
-%                             % Go on to the next frame and keep searching
-%                             frame_idx = frame_idx + 1;
-%                             % Reset the first_frame
-%                             first_frame = 0;
-%                         % If duration > 1
-%                         else
-%                             % [last frame in anchor, first frame in anchor, trajectory ID (finalTrajmin5 row), anchor ID, movie ID]
-%                             % Problem with this method is that it doesn't account for
-%                             % cases where the trajectory goes back inside an anchor
-%                             % after leaving
-%                             outside_anchor_trajs = cat(1,outside_anchor_trajs,[first_frame, last_frame, traj, anchorID, movie_index]);
-%                             % Break the while loop
-%                             frame_idx = 0;
-%                         end
-%                     end
-%                 end
-%             
-%                 % Plot the trajectory, frames stuck in anchor and anchor
-%                 hold on;
-%                 plot(traj_x_y(:,1),traj_x_y(:,2))
-%                 if first_frame > 0
-%                     hold on;
-%                     scatter(traj_x_y(first_frame:last_frame,1),traj_x_y(first_frame:last_frame,2))
-%                 end
-%                 axis image
-%             end
-%         end
+        
+        % Find the number of consecutive frames anchored traj spends
+        % within their anchor
+        for traj_idx = 1:numel(current_trajs)
+            
+            anchored_frames = [];
+            
+            traj = current_trajs(traj_idx);
+            traj_x_y = finalTrajmin5{traj}(:, 1:2);
+
+            % Trajectory needs to start and finish outside of an anchor
+            % Check the first and the last frame of the trajectory to see
+            % if it's outside of the anchor boundary
+            if (traj_x_y(1,1)<(anchor_coords(1)-radius) || traj_x_y(1,1)>(anchor_coords(1)+radius) || traj_x_y(1,2)<(anchor_coords(2)-radius) || traj_x_y(1,2)>(anchor_coords(2)+radius)) && (traj_x_y(end,1)<(anchor_coords(1)-radius) || traj_x_y(end,1)>(anchor_coords(1)+radius) || traj_x_y(end,2)<(anchor_coords(2)-radius) || traj_x_y(end,2)>(anchor_coords(2)+radius))
+                % Find the duration that it stayed within the anchor
+                frame_idx = 1;
+                first_frame = 0;
+                while frame_idx <= size(traj_x_y,1)
+                    % Find the first frame where it enters the anchor: x
+                    % and y coordinates must be within the anchor boundary
+                    if traj_x_y(frame_idx,1)>=(anchor_coords(1)-radius) && traj_x_y(frame_idx,1)<=(anchor_coords(1)+radius) && traj_x_y(frame_idx,2)>=(anchor_coords(2)-radius) && traj_x_y(frame_idx,2)<=(anchor_coords(2)+radius)
+                        first_frame = frame_idx;
+                        consec_frames = first_frame + 1;
+                        % Count the number of frames it stays within the
+                        % anchor
+                        while traj_x_y(consec_frames,1)>=(anchor_coords(1)-radius) && traj_x_y(consec_frames,1)<=(anchor_coords(1)+radius) && traj_x_y(consec_frames,2)>=(anchor_coords(2)-radius) && traj_x_y(consec_frames,2)<=(anchor_coords(2)+radius)
+                            consec_frames = consec_frames + 1;
+                        end
+                        last_frame = consec_frames - 1;
+                    % Continue searching
+                    else
+                        frame_idx = frame_idx + 1;
+                    end
+                    
+                    % If the anchored frames have been found
+                    if first_frame > 0
+                        % Skip cases where the trajectory didn't stay in the anchor
+                        if first_frame == last_frame
+                            % Go on to the next frame and keep searching
+                            frame_idx = frame_idx + 1;
+                            % Reset the first_frame
+                            first_frame = 0;
+                        % If duration > 1
+                        else
+                            % [last frame in anchor, first frame in anchor, trajectory ID (finalTrajmin5 row), anchor ID, movie ID]
+                            % Problem with this method is that it doesn't account for
+                            % cases where the trajectory goes back inside an anchor
+                            % after leaving
+                            anchored_frames(end+1,:) = [first_frame, last_frame];
+                            frame_idx = last_frame + 1;
+                        end
+                    end
+                end
+                
+                index =find(anchored_frames(1:end-1,2)-anchored_frames(2:end,1) == 1);
+                anchored_frames(index,2) = anchored_frames(index+1,2);
+                anchored_frames(index+1,:) = [-1 -1];
+                anchored_frames = anchored_frames(anchored_frames(:,1)>0,:);
+                % Find the longest anchored_frames and store it
+                outside_anchor_trajs{end+idx} = cat(1,outside_anchor_trajs,[max(anchored_frames(:,2)-anchored_frames(:,1)), traj, anchorID, movie_index]);
+    
+                % Plot the trajectory, frames stuck in anchor and anchor
+                hold on;
+                plot(traj_x_y(:,1),traj_x_y(:,2))
+                if first_frame > 0
+                    hold on;
+                    scatter(traj_x_y(first_frame:last_frame,1),traj_x_y(first_frame:last_frame,2))
+                end
+                axis image
+            end
+        end
     end
     
     % Separate rows into anchored and non-anchored and store their lengths
