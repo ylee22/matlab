@@ -5,10 +5,10 @@ localization_acc = 20;
 % cell area for 12-2-2015: 1.5*1.1*10^9;
 % cell area for two color 2-19-2016: 2.5*10^8;
 % cell area for EGF treatment = (128*127)^2;
-cell_area = (128*127)^2;
+cell_area = 1.5*1.1*10^9;
 all_anchored_traj_length = [];
 all_free_traj_length = [];
-outside_anchor_trajs = [];
+frames_in_anchor = [];
 for movie_index=1:length(all_combined_final_trajs)
     % Clear variables, just in case
     clearvars immobile_anchor_coords immobile_anchored_spots immobile_coords cluster_anchor_coords cluster_anchored_traj combined_anchor_coords first_last_anchor_frames converted_to_trajs current_combined_final_traj finalTrajmin5
@@ -44,14 +44,7 @@ for movie_index=1:length(all_combined_final_trajs)
         COUNTER = COUNTER + numel(current_trajs);
         
         radius = combined_anchor_coords(anchorID, 1);
-        anchor_coords = combined_anchor_coords(anchorID, 2:3);
-
-%         % Plot
-%         figure
-%         plotTrajectories(finalTrajmin5(current_trajs))
-%         ang=0:0.01:2*pi;
-%         hold on;
-%         plot(anchor_coords(1,1)+radius*cos(ang),anchor_coords(1,2)+radius*sin(ang),'r')        
+        anchor_coords = combined_anchor_coords(anchorID, 2:3);     
         
         % Find the number of consecutive frames anchored traj spends
         % within their anchor
@@ -88,41 +81,38 @@ for movie_index=1:length(all_combined_final_trajs)
                     
                     % If the anchored frames have been found
                     if first_frame > 0
-                        % Skip cases where the trajectory didn't stay in the anchor
-                        if first_frame == last_frame
-                            % Go on to the next frame and keep searching
-                            frame_idx = frame_idx + 1;
-                            % Reset the first_frame
-                            first_frame = 0;
-                        % If duration > 1
-                        else
-                            % [last frame in anchor, first frame in anchor, trajectory ID (finalTrajmin5 row), anchor ID, movie ID]
-                            % Problem with this method is that it doesn't account for
-                            % cases where the trajectory goes back inside an anchor
-                            % after leaving
-                            anchored_frames(end+1,:) = [first_frame, last_frame];
-                            frame_idx = last_frame + 1;
-                        end
+                        anchored_frames(end+1,:) = [first_frame, last_frame];
+                        frame_idx = last_frame + 1;
+                        first_frame = 0;
                     end
                 end
                 
-                index =find(anchored_frames(1:end-1,2)-anchored_frames(2:end,1) == 1);
-                anchored_frames(index,2) = anchored_frames(index+1,2);
-                anchored_frames(index+1,:) = [-1 -1];
-                anchored_frames = anchored_frames(anchored_frames(:,1)>0,:);
-                % Find the longest anchored_frames and store it
-                outside_anchor_trajs{end+idx} = cat(1,outside_anchor_trajs,[max(anchored_frames(:,2)-anchored_frames(:,1)), traj, anchorID, movie_index]);
-    
-                % Plot the trajectory, frames stuck in anchor and anchor
-                hold on;
-                plot(traj_x_y(:,1),traj_x_y(:,2))
-                if first_frame > 0
-                    hold on;
-                    scatter(traj_x_y(first_frame:last_frame,1),traj_x_y(first_frame:last_frame,2))
+                if size(anchored_frames,1)>2
+                    % Find places where it only left for one frame and came
+                    % back and piece it together
+                    idx = find(anchored_frames(2:end,1)-anchored_frames(1:end-1,2)==2);
+                    anchored_frames(idx,2) = anchored_frames(idx+1,2);
+                    % I have to loop through it backwards because the
+                    % longest will be at the front of the list
+                    for i = 0:numel(idx)-2
+                        if idx(end-i)-idx(end-i-1) == 1
+                            anchored_frames(idx(end-i-1),2) = anchored_frames(idx(end-i),2);
+                        end
+                    end
+                    [~, max_idx] = max(anchored_frames(:,2)-anchored_frames(:,1));
+                    % If the trajectory stayed in the anchor for more than
+                    % 1 frame
+                    if anchored_frames(max_idx,2)-anchored_frames(max_idx,1) > 1
+                        % [first frame in anchor, last frame in anchor, trajectory ID (finalTrajmin5 row), anchor ID, movie ID]
+                        frames_in_anchor(end+1,:) = [anchored_frames(max_idx,:), traj, anchorID, movie_index];
+                    end
                 end
-                axis image
             end
         end
+    end
+    
+    if ismember(0,anchored_traj_rows)
+        error('anchored_traj_rows COUNTER is off')
     end
     
     % Separate rows into anchored and non-anchored and store their lengths

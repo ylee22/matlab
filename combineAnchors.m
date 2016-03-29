@@ -270,7 +270,7 @@ while DUPLICATE_MARKER
     for anchor = 1:length(overlaps)
         % If the anchor pair is within the first anchor's radius, keep the
         % index in the overlap_idx list
-        if pdist2(larger_anchor_coords(overlaps(anchor,1),2:3),larger_anchor_coords(overlaps(anchor,2),2:3)) <= larger_anchor_coords(overlaps(anchor,1),1)
+        if pdist2(larger_anchor_coords(overlaps(anchor,1),2:3),larger_anchor_coords(overlaps(anchor,2),2:3)) <= larger_anchor_coords(overlaps(anchor,1),1) + larger_anchor_coords(overlaps(anchor,2),1)
             overlap_idx(end+1) = anchor;
         end
     end
@@ -415,23 +415,35 @@ first_last_anchor_frames = firstLastFrame(anchor_frames);
 
 end
 
-
+% NEED TO FIX TO ALLOW OUT OF BOUNDS ON ONLY ONE SIDE NOT BOTH
 function [larger_anchor_coords, trajs] = removeRedundantTrajsandCoords(row_idx, trajs, larger_anchor_coords)
     WINDOW = 1;
-    while WINDOW
-        % Anchors from the same source are added next to each other
-        if trajs{row_idx - WINDOW}(1) == trajs{row_idx}(1)
-            larger_anchor_coords(row_idx - WINDOW,:) = NaN;
-            trajs{row_idx - WINDOW} = [];
-            WINDOW = WINDOW + 1;
-        elseif trajs{row_idx + WINDOW}(1) == trajs{row_idx}(1)
-            larger_anchor_coords(row_idx + WINDOW,:) = NaN;
-            trajs{row_idx + WINDOW} = [];
-            WINDOW = WINDOW + 1;
-        else
-            WINDOW = 0;
+    REPEAT = 1;
+    % sometimes the array is empty (trajs{row_idx-/+WINDOW}, so can't index into it
+    while REPEAT
+        REPEAT = 0;
+        % Check lower bound
+        if row_idx - WINDOW > 0 && ~isempty(trajs{row_idx - WINDOW})
+            % Anchors from the same source are added next to each other
+            if trajs{row_idx - WINDOW}(1) == trajs{row_idx}(1)
+                larger_anchor_coords(row_idx - WINDOW,:) = NaN;
+                trajs{row_idx - WINDOW} = [];
+                WINDOW = WINDOW + 1;
+                REPEAT = 1;
+            end
+        end
+        
+        % Check upper bound
+        if row_idx + WINDOW <= numel(trajs) && ~isempty(trajs{row_idx + WINDOW})
+            if trajs{row_idx + WINDOW}(1) == trajs{row_idx}(1)
+                larger_anchor_coords(row_idx + WINDOW,:) = NaN;
+                trajs{row_idx + WINDOW} = [];
+                WINDOW = WINDOW + 1;
+                REPEAT = 1;
+            end
         end
     end
+    
 end
 
 
