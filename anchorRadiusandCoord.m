@@ -38,10 +38,10 @@ if ~isempty(immobile_spot_coords) && ~isempty(trajs)
     % Determine the inputs to DBSCAN
     % search radius is the median of all of the step sizes taken by the
     % anchored trajectories
-    search_radius = median(search_radius);
+    search_radius = max(median(search_radius),LOC_ACC);
     
     % If DBSCAN doesn't find anything
-%     anchored_radius = max(pdist(anchored_coords))/2;
+    anchored_radius = max(pdist(anchored_coords))/2;
 
     % immobile_coords is the average between the two consecutive frames
     % with distance less than the localization accuracy. Need to find the
@@ -52,7 +52,7 @@ if ~isempty(immobile_spot_coords) && ~isempty(trajs)
     for traj_idx = 1:numel(spot_to_traj)
         min_points = min_points + numel(unique(immobile_spot_coords(immobile_spot_coords(:,1)==spot_to_traj(traj_idx),2:3)));
     end
-    min_points = min_points - 1;
+    min_points = min(min_points - 1, size(anchored_coords,1)/2);
 
     % Use poisson distribution for the minimum points to define an anchor
     expected_number_of_points = GLOBAL_DENSITY*pi*search_radius^2;
@@ -83,17 +83,19 @@ elseif ~isempty(immobile_spot_coords)
     % Sometimes there is a redundant spot (1 & 2, 2 & 3 = 1, 2, 3)
     spot_coords = spot_coords(1:COUNTER - 1, :);
     
-    % Farthest distance between two immobile spots to approximate search
-    % radius. Use localization error instead if the immobile spots are too
-    % close together
-    search_radius = max(max(pdist(spot_coords)),LOC_ACC);
+    % If there are two distinct clusters, max(pdist(spot_coords)) is very
+    % very large, use median spot distance instead (median spot distance
+    % should still be accurate even if there are two separate clusteres).
+    % Use localization error instead if the immobile spots are too close
+    % together.
+    search_radius = max(median(pdist(spot_coords)),LOC_ACC);
     
     % If DBSCAN doesn't find anything
-%     anchored_radius = search_radius;
+    anchored_radius = max(pdist(anchored_coords))/2;
 
     % The cluster has to have at minimum the number of immobile spots that were
     % found before
-    min_points = COUNTER - 1;
+    min_points = min(COUNTER - 1, size(anchored_coords,1)/2);
     
 % If cluster only
 elseif ~isempty(trajs)
@@ -104,10 +106,10 @@ elseif ~isempty(trajs)
     % Determine the inputs to DBSCAN
     % search radius is the median of all of the step sizes taken by the
     % anchored trajectories
-    search_radius = median(search_radius);
+    search_radius = max(median(search_radius),LOC_ACC);
     
     % If DBSCAN doesn't find anything
-%     anchored_radius = max(pdist(anchored_coords))/2;
+    anchored_radius = max(pdist(anchored_coords))/2;
 
     % Use poisson distribution for the minimum points to define an anchor
     expected_number_of_points = GLOBAL_DENSITY*pi*search_radius^2;
@@ -160,11 +162,11 @@ end
 % Define anchor center for each cluster
 
 % If I wanted to save anchors that DBSCAN couldn't find
-% if max(IDX) == 0
-%     radius_and_coords = [anchored_radius, mean(anchored_coords), 0];
+if max(IDX) == 0
+    radius_and_coords = [anchored_radius, mean(anchored_coords), 0];
 
 % Save only the anchors that were found by DBSCAN
-if max(IDX) > 0
+elseif max(IDX) > 0
     radius_and_coords = zeros(max(IDX),4);
     for i=1:max(IDX)
         % Find anchor center

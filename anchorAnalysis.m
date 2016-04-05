@@ -1,7 +1,7 @@
 all_combined_final_trajs = who('combFinalTraj*');
 radius_and_duration = [];
 all_anchor_radii = [];
-localization_acc = 20;
+localization_acc = 30;
 % cell area for 12-2-2015: 1.5*1.1*10^9;
 % cell area for two color 2-19-2016: 2.5*10^8;
 % cell area for EGF treatment = (128*127)^2;
@@ -9,6 +9,8 @@ cell_area = 1.5*1.1*10^9;
 all_anchored_traj_length = [];
 all_free_traj_length = [];
 frames_in_anchor = [];
+max_disp_anchored_trajs = [];
+max_disp_free_trajs = [];
 for movie_index=1:length(all_combined_final_trajs)
     % Clear variables, just in case
     clearvars immobile_anchor_coords immobile_anchored_spots immobile_coords cluster_anchor_coords cluster_anchored_traj combined_anchor_coords first_last_anchor_frames converted_to_trajs current_combined_final_traj finalTrajmin5
@@ -121,11 +123,15 @@ for movie_index=1:length(all_combined_final_trajs)
     anchored_traj_rows = unique(anchored_traj_rows);
     
     % Find the rows that are not anchored
-    non_anchored_traj_rows = setdiff([1:numel(finalTrajmin5)], anchored_traj_rows);
+    free_traj_rows = setdiff([1:numel(finalTrajmin5)], anchored_traj_rows);
     
     % Store anchored and free trajectory lengths
     all_anchored_traj_length = cat(2, all_anchored_traj_length, all_traj_length(anchored_traj_rows));
-    all_free_traj_length = cat(2, all_free_traj_length, all_traj_length(non_anchored_traj_rows));
+    all_free_traj_length = cat(2, all_free_traj_length, all_traj_length(free_traj_rows));
+    
+    % Store the maximum displacement for anchored and free trajectories
+    max_disp_anchored_trajs = [max_disp_anchored_trajs, maxDisplacement(finalTrajmin5(anchored_traj_rows))];
+    max_disp_free_trajs = [max_disp_free_trajs, maxDisplacement(finalTrajmin5(free_traj_rows))];
     
     % Store all anchor radii
     all_anchor_radii=cat(1,all_anchor_radii,combined_anchor_coords(:,1));
@@ -135,7 +141,7 @@ for movie_index=1:length(all_combined_final_trajs)
     radius_and_duration = cat(1,radius_and_duration,[combined_anchor_coords(first_last_anchor_frames(:,1),1), (first_last_anchor_frames(:,3)-first_last_anchor_frames(:,2))]);
     
     % Plot the movie
-    plotVariableAnchorSizes(finalTrajmin5, combined_anchor_coords);
+%     plotVariableAnchorSizes(finalTrajmin5, combined_anchor_coords);
         
 end
 
@@ -170,5 +176,3 @@ end
 % scatter(radius_and_duration(:,1), radius_and_duration(:,2)*frame_interval)
 % xlabel('Anchor Radius in nm')
 % ylabel('Anchor Duration in sec')
-
-% makeAnchorPlots(new_first_last_frames, 20)

@@ -428,7 +428,6 @@ function [larger_anchor_coords, trajs] = removeRedundantTrajsandCoords(row_idx, 
             if trajs{row_idx - WINDOW}(1) == trajs{row_idx}(1)
                 larger_anchor_coords(row_idx - WINDOW,:) = NaN;
                 trajs{row_idx - WINDOW} = [];
-                WINDOW = WINDOW + 1;
                 REPEAT = 1;
             end
         end
@@ -438,10 +437,11 @@ function [larger_anchor_coords, trajs] = removeRedundantTrajsandCoords(row_idx, 
             if trajs{row_idx + WINDOW}(1) == trajs{row_idx}(1)
                 larger_anchor_coords(row_idx + WINDOW,:) = NaN;
                 trajs{row_idx + WINDOW} = [];
-                WINDOW = WINDOW + 1;
                 REPEAT = 1;
             end
         end
+        
+        WINDOW = WINDOW + 1;
     end
     
 end
