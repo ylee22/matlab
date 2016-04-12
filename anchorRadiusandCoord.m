@@ -52,13 +52,13 @@ if ~isempty(immobile_spot_coords) && ~isempty(trajs)
     for traj_idx = 1:numel(spot_to_traj)
         min_points = min_points + numel(unique(immobile_spot_coords(immobile_spot_coords(:,1)==spot_to_traj(traj_idx),2:3)));
     end
-    min_points = min(min_points - 1, size(anchored_coords,1)/2);
+    min_points = min(min_points - 1, floor(size(anchored_coords,1)/2) - 1);
 
     % Use poisson distribution for the minimum points to define an anchor
     expected_number_of_points = GLOBAL_DENSITY*pi*search_radius^2;
 
     probability = 1;
-    while probability > 0.05 && min_points < length(anchored_coords);
+    while probability > 0.05 && min_points < size(anchored_coords,1)/2;
         min_points = min_points + 1;
         probability = 1 - poisscdf(min_points,expected_number_of_points);
     end
@@ -88,14 +88,22 @@ elseif ~isempty(immobile_spot_coords)
     % should still be accurate even if there are two separate clusteres).
     % Use localization error instead if the immobile spots are too close
     % together.
-    search_radius = max(median(pdist(spot_coords)),LOC_ACC);
+    spot_distance = zeros(1, size(spot_coords,1) - 1);
+    for row = 1:size(spot_coords,1) - 1
+        spot_distance(row) = pdist(spot_coords(row:row+1,:));
+    end
+    search_radius = max(median(spot_distance),LOC_ACC);
     
     % If DBSCAN doesn't find anything
     anchored_radius = max(pdist(anchored_coords))/2;
 
-    % The cluster has to have at minimum the number of immobile spots that were
-    % found before
-    min_points = min(COUNTER - 1, size(anchored_coords,1)/2);
+    % Assume that there are two anchors here and set the min points to the
+    % number of points in larger of the two clusters (if there is actually
+    % only 1 cluster, then the smaller cluster will be false)
+    kmeans_clusters = kmeans(spot_coords,2);
+    min_points = max(max(sum(kmeans_clusters==1), sum(kmeans_clusters==2)), 3);
+%     min_points = max(ceil(max(sum(kmeans_clusters==1), sum(kmeans_clusters==2))/2), 3);
+%     min_points = min(COUNTER - 1, floor(size(anchored_coords,1)/2));
     
 % If cluster only
 elseif ~isempty(trajs)
@@ -148,7 +156,7 @@ if max(IDX) > 1
         % Loop through every combination
         for idx1 = 1:size(anchors,1)
             for idx2 = idx1+1:size(anchors,1)
-                if dist_matrix(idx1,idx2) <= max((radii(idx1) + radii(idx2))*1.2, LOC_ACC)
+                if dist_matrix(idx1,idx2) <= max((radii(idx1) + radii(idx2))*1.25, LOC_ACC)
                     OVERLAP = 1;
                     search_radius = search_radius + 1;
                     % Redo DBSCAN with larger search_radius
