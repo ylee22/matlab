@@ -1,4 +1,4 @@
-function [ flattened_trajs_spots, larger_anchor_coords, first_last_anchor_frames, trajs ] = combineAnchors( finalTraj, cluster_anchor_coords, cluster_trajs, immobile_coords, immobile_anchor_coords, immobile_spots, LOC_ACC, CELL_AREA )
+function [ larger_anchor_coords, trajs ] = combineAnchors( finalTraj, cluster_anchor_coords, cluster_trajs, immobile_coords, immobile_anchor_coords, immobile_spots, LOC_ACC, CELL_AREA )
 % Summary: This function combines the cluster and immobile anchors
 % together, returns the finalized anchor (radius, center, duration) and the
 % trajectories and or the immobile spots used to define the anchor
@@ -101,9 +101,8 @@ end
 % that should have been covered in the findImmobileAnchors and
 % findClusterAnchors. The trajs and anchor_coords should have the same
 % number of anchors (same length).
-for combined_idx = 1:length(larger_trajs)
-    for merged_idx = 1:length(smaller_trajs)
-        
+for combined_idx = 1:length(larger_anchor_coords)
+    for merged_idx = 1:length(smaller_anchor_coords)
         if combined_idx >= merged_idx
             if ~isempty(larger_anchor_coords{combined_idx}) && ~isempty(smaller_anchor_coords{merged_idx})
                 % KD tree and the search happens in the function
@@ -187,7 +186,7 @@ for anchor_idx = 1:length(flattened_trajs_spots)
     if iscell(larger_coords)
         % If both
         if iscell(flattened_trajs_spots{anchor_idx})
-            [anchor_properties, converted_to_traj] = anchorRadiusandCoord(larger_coords,immobile_coords(flattened_trajs_spots{anchor_idx}{2}(2:end),:),flattened_trajs_spots{anchor_idx}{1}(2:end),LOC_ACC,GLOBAL_DENSITY);
+            [anchor_properties, all_anchored_trajs] = anchorRadiusandCoord(larger_coords,immobile_coords(flattened_trajs_spots{anchor_idx}{2}(2:end),:),flattened_trajs_spots{anchor_idx}{1}(2:end),LOC_ACC,GLOBAL_DENSITY);
             % Sometimes DBSCAN gives multiple anchors, resulting in
             % mismatched rows between flattened_trajs_spots and
             % larger_anchor_coords/trajs. The first element in trajs,
@@ -195,7 +194,7 @@ for anchor_idx = 1:length(flattened_trajs_spots)
             % flattened_trajs_spots.
             for z = 1:size(anchor_properties,1)
                 larger_anchor_coords(COUNTER,:) = anchor_properties(z,:);
-                trajs{COUNTER} = cat(2,[-anchor_idx, flattened_trajs_spots{anchor_idx}{1}(2:end)], converted_to_traj);
+                trajs{COUNTER} = [-anchor_idx, all_anchored_trajs];
                 COUNTER = COUNTER + 1;
             end
         % If cluster only
@@ -209,10 +208,10 @@ for anchor_idx = 1:length(flattened_trajs_spots)
         % If immobile only
         elseif flattened_trajs_spots{anchor_idx}(1) == -2
             % Immobile anchor radius and coordinates
-            [anchor_properties, converted_to_traj] = anchorRadiusandCoord(larger_coords,immobile_coords(flattened_trajs_spots{anchor_idx}(2:end),:),[],LOC_ACC,GLOBAL_DENSITY);
+            [anchor_properties, spots_converted_to_traj] = anchorRadiusandCoord(larger_coords,immobile_coords(flattened_trajs_spots{anchor_idx}(2:end),:),[],LOC_ACC,GLOBAL_DENSITY);
             for z = 1:size(anchor_properties,1)
                 larger_anchor_coords(COUNTER,:) = anchor_properties(z,:);
-                trajs{COUNTER} = [-anchor_idx, converted_to_traj];
+                trajs{COUNTER} = [-anchor_idx, spots_converted_to_traj];
                 COUNTER = COUNTER + 1;
             end
         end
@@ -220,20 +219,20 @@ for anchor_idx = 1:length(flattened_trajs_spots)
     % smaller_coords is finalTraj, so -1 (1st) is immobile and -2 (2nd) is
     % cluster
     else
-        % If larger_coords is finalTraj and this anchor is immobile only
+        % If both
         if iscell(flattened_trajs_spots{anchor_idx})
-            [anchor_properties, converted_to_traj] = anchorRadiusandCoord(smaller_coords,immobile_coords(flattened_trajs_spots{anchor_idx}{1}(2:end),:),flattened_trajs_spots{anchor_idx}{2}(2:end),LOC_ACC,GLOBAL_DENSITY);
+            [anchor_properties, all_anchored_trajs] = anchorRadiusandCoord(smaller_coords,immobile_coords(flattened_trajs_spots{anchor_idx}{1}(2:end),:),flattened_trajs_spots{anchor_idx}{2}(2:end),LOC_ACC,GLOBAL_DENSITY);
             for z = 1:size(anchor_properties,1)
                 larger_anchor_coords(COUNTER,:) = anchor_properties(z,:);
-                trajs{COUNTER} = cat(2,[-anchor_idx, flattened_trajs_spots{anchor_idx}{2}(2:end)], converted_to_traj);
+                trajs{COUNTER} = [-anchor_idx, all_anchored_trajs];
                 COUNTER = COUNTER + 1;
             end
         % If immobile only
         elseif flattened_trajs_spots{anchor_idx}(1) == -1
-            [anchor_properties, converted_to_traj] = anchorRadiusandCoord(smaller_coords,immobile_coords(flattened_trajs_spots{anchor_idx}(2:end),:),[],LOC_ACC,GLOBAL_DENSITY);
+            [anchor_properties, spots_converted_to_traj] = anchorRadiusandCoord(smaller_coords,immobile_coords(flattened_trajs_spots{anchor_idx}(2:end),:),[],LOC_ACC,GLOBAL_DENSITY);
             for z = 1:size(anchor_properties,1)
                 larger_anchor_coords(COUNTER,:) = anchor_properties(z,:);
-                trajs{COUNTER} = [-anchor_idx, converted_to_traj];
+                trajs{COUNTER} = [-anchor_idx, spots_converted_to_traj];
                 COUNTER = COUNTER + 1;
             end
         % If cluster only
@@ -315,7 +314,7 @@ while DUPLICATE_MARKER
             % DBSCAN overlaps after one of the anchors increased in side
             % after merging with a different anchor
             if current_anchor ~= merged_anchor
-                flattened_trajs_spots{merged_anchor} = [];               
+                flattened_trajs_spots{merged_anchor} = [];
             end
 
             % Combine trajectories here
@@ -403,15 +402,15 @@ if numel(trajs) ~= length(larger_anchor_coords)
 end
 
 
-% 7. Find anchor duration for anchors with more than one anchored
-% trajectory
-
-% Find anchor duration. Get the starting and the ending frame numbers for
-% all of the trajectories in each anchor
-anchor_frames = frameNumbers(trajs, finalTraj);
-
-% Get the first and last frames for all of the anchors
-first_last_anchor_frames = firstLastFrame(anchor_frames);
+% % 7. Find anchor duration for anchors with more than one anchored
+% % trajectory
+% 
+% % Find anchor duration. Get the starting and the ending frame numbers for
+% % all of the trajectories in each anchor
+% anchor_frames = frameNumbers(trajs, finalTraj);
+% 
+% % Get the first and last frames for all of the anchors
+% first_last_anchor_frames = firstLastFrame(anchor_frames);
 
 end
 

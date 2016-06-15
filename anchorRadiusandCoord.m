@@ -1,4 +1,4 @@
-function [ radius_and_coords, spot_to_traj ] = anchorRadiusandCoord(finalTraj,immobile_spot_coords,trajs,LOC_ACC,GLOBAL_DENSITY)
+function [ radius_and_coords, traj_list ] = anchorRadiusandCoord(finalTraj,immobile_spot_coords,trajs,LOC_ACC,GLOBAL_DENSITY)
 % Summary: This function takes the parameters that were used to find an
 % anchor (either trajectories or immobile spots or both) and uses DBSCAN to
 % define anchor center and the radius.
@@ -31,6 +31,7 @@ function [ radius_and_coords, spot_to_traj ] = anchorRadiusandCoord(finalTraj,im
 if ~isempty(immobile_spot_coords) && ~isempty(trajs)
     % Convert to trajectories
     spot_to_traj = unique(immobile_spot_coords(:,1))';
+    % Combine with the immobile spots converted trajs to cluster trajectories
     traj_list = unique([trajs,spot_to_traj]);
     [anchored_coords, search_radius] = anchoredFrameCoords(finalTraj, traj_list);
 
@@ -66,6 +67,7 @@ if ~isempty(immobile_spot_coords) && ~isempty(trajs)
 elseif ~isempty(immobile_spot_coords)
     % Convert to trajectories
     spot_to_traj = unique(immobile_spot_coords(:,1))';
+    traj_list = spot_to_traj;
     [anchored_coords, ~] = anchoredFrameCoords(finalTraj, spot_to_traj);
 
     % immobile_coords is the average between the two consecutive frames
@@ -107,7 +109,7 @@ elseif ~isempty(immobile_spot_coords)
     
 % If cluster only
 elseif ~isempty(trajs)
-    spot_to_traj = [];
+    traj_list = [];
     [anchored_coords, search_radius] = anchoredFrameCoords(finalTraj, trajs);
 
     % Find anchor center and radius here
@@ -132,7 +134,7 @@ elseif ~isempty(trajs)
 end
 
 % DBSCAN to find clusters
-[IDX, ~] = DBSCAN_with_comments(anchored_coords,search_radius,min_points);
+[IDX, ~] = dbscan(anchored_coords,search_radius,min_points);
 
 % Check for overlaps if DBSCAN finds multiple clusters within one anchor
 if max(IDX) > 1
@@ -160,7 +162,7 @@ if max(IDX) > 1
                     OVERLAP = 1;
                     search_radius = search_radius + 1;
                     % Redo DBSCAN with larger search_radius
-                    [IDX, ~] = DBSCAN_with_comments(anchored_coords,search_radius,min_points);
+                    [IDX, ~] = dbscan(anchored_coords,search_radius,min_points);
                 end
             end
         end
