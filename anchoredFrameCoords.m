@@ -1,7 +1,8 @@
 function [traj_coords, frame_displacement] = anchoredFrameCoords(finalTrajCoords, finalTrajIdx)
 % Returns a n by 2 matrix of just x, y coordinates of the all the anchored
 % trajectories
-    traj_coords = zeros(sum(cellfun(@numel,finalTrajCoords(finalTrajIdx))/7), 2);
+    number_columns = size(finalTrajCoords{1},2);
+    traj_coords = zeros(sum(cellfun(@numel,finalTrajCoords(finalTrajIdx))/number_columns), 2);
     % Displacement is going to have one lesse element than coordinates each
     % time
     frame_displacement = zeros(1,size(traj_coords,1) - numel(finalTrajIdx));

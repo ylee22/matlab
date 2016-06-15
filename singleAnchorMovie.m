@@ -10,6 +10,10 @@ ang=0:0.01:2*pi;
 xp=anchor_radius*cos(ang)+anchor_coord(1);
 yp=anchor_radius*sin(ang)+anchor_coord(2);
 plot(xp,yp,'LineWidth',2,'Color','k')
+
+axis manual
+axis([10300 11000 5700 6250])
+
 xlabel('First and last frame numbers for each trajectory (20 ms frame rate)');
 hold on;
 

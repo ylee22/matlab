@@ -55,6 +55,9 @@ function [ anchor_coords, anchored_spots, immobile_coords ] = findImmobileAnchor
     % Find anchors here
     anchored_spots = mergeImmobileSpots(neighboring_spots, localization_acc, immobile_coords(:,4:5));
     
+    % Remove empty cells
+    anchored_spots = anchored_spots(~cellfun(@isempty, anchored_spots));
+    
     % Filter based on the minimum number of spots per anchor
     % Calculate the probability and the threshold for min spots/anchor
     anchor_coords = {};

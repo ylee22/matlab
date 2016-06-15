@@ -47,6 +47,9 @@ function [ anchor_coords, anchored_traj ] = findClusterAnchors( finalTraj, local
     % Find anchors here
     anchored_traj = mergeClusterAnchors(neighboring_traj, localization_acc, center_coords);
     
+    % Remove empty cells
+    anchored_traj = anchored_traj(~cellfun(@isempty, anchored_traj));
+    
     % Filter based on the minimum number of trajectories per anchor
     % Calculate the probability and the threshold for min traj/anchor
     anchor_coords = {};
