@@ -32,7 +32,7 @@ if ~isempty(immobile_spot_coords) && ~isempty(trajs)
     % Convert to trajectories
     spot_to_traj = unique(immobile_spot_coords(:,1))';
     % Combine with the immobile spots converted trajs to cluster trajectories
-    traj_list = unique([trajs,spot_to_traj]);
+    traj_list = unique([trajs, spot_to_traj]);
     [anchored_coords, search_radius] = anchoredFrameCoords(finalTraj, traj_list);
 
     % Find anchor center and radius here
@@ -40,9 +40,6 @@ if ~isempty(immobile_spot_coords) && ~isempty(trajs)
     % search radius is the median of all of the step sizes taken by the
     % anchored trajectories
     search_radius = max(median(search_radius),LOC_ACC);
-    
-    % If DBSCAN doesn't find anything
-    anchored_radius = max(pdist(anchored_coords))/2;
 
     % immobile_coords is the average between the two consecutive frames
     % with distance less than the localization accuracy. Need to find the
@@ -78,7 +75,7 @@ elseif ~isempty(immobile_spot_coords)
     spot_coords = zeros(size(immobile_spot_coords,1)*2,2);
     COUNTER = 1;
     for traj_idx = 1:numel(spot_to_traj)
-        finalTraj_spot_idx = unique(immobile_spot_coords(immobile_spot_coords(:,1)==spot_to_traj(traj_idx),2:3));
+        finalTraj_spot_idx = unique(immobile_spot_coords(immobile_spot_coords(:,1) == spot_to_traj(traj_idx), 2:3));
         spot_coords(COUNTER:COUNTER+numel(finalTraj_spot_idx)-1,:) = finalTraj{spot_to_traj(traj_idx)}(finalTraj_spot_idx,1:2);
         COUNTER = COUNTER + numel(finalTraj_spot_idx);
     end
@@ -95,9 +92,6 @@ elseif ~isempty(immobile_spot_coords)
         spot_distance(row) = pdist(spot_coords(row:row+1,:));
     end
     search_radius = max(median(spot_distance),LOC_ACC);
-    
-    % If DBSCAN doesn't find anything
-    anchored_radius = max(pdist(anchored_coords))/2;
 
     % Assume that there are two anchors here and set the min points to the
     % number of points in larger of the two clusters (if there is actually
@@ -117,9 +111,6 @@ elseif ~isempty(trajs)
     % search radius is the median of all of the step sizes taken by the
     % anchored trajectories
     search_radius = max(median(search_radius),LOC_ACC);
-    
-    % If DBSCAN doesn't find anything
-    anchored_radius = max(pdist(anchored_coords))/2;
 
     % Use poisson distribution for the minimum points to define an anchor
     expected_number_of_points = GLOBAL_DENSITY*pi*search_radius^2;
@@ -133,61 +124,6 @@ elseif ~isempty(trajs)
 
 end
 
-% DBSCAN to find clusters
-[IDX, ~] = dbscan(anchored_coords,search_radius,min_points);
-
-% Check for overlaps if DBSCAN finds multiple clusters within one anchor
-if max(IDX) > 1
-    OVERLAP = 1;
-    % During the while loop, number of anchors can go down to 1. Need to
-    % recheck for minimum of 2 clusters here. If there is only one cluster,
-    % dist_matrix will be 0 and trying to index into dist_matrix will cause
-    % an index error.
-    while OVERLAP && max(IDX) > 1
-        OVERLAP = 0;
-        anchors = zeros(max(IDX),2);
-        radii = zeros(max(IDX),1);
-        for anchor = 1:max(IDX)
-            anchors(anchor,:) = mean(anchored_coords(IDX==anchor,:));
-            radii(anchor) = max(pdist2(anchors(anchor,:),anchored_coords(IDX==anchor,:)));
-        end
-        
-        % Upper triangle with distances between anchor centers
-        dist_matrix = triu(pdist2(anchors,anchors));
-        
-        % Loop through every combination
-        for idx1 = 1:size(anchors,1)
-            for idx2 = idx1+1:size(anchors,1)
-                if dist_matrix(idx1,idx2) <= max((radii(idx1) + radii(idx2))*1.25, LOC_ACC)
-                    OVERLAP = 1;
-                    search_radius = search_radius + 1;
-                    % Redo DBSCAN with larger search_radius
-                    [IDX, ~] = dbscan(anchored_coords,search_radius,min_points);
-                end
-            end
-        end
-    end
-end
-
-% Define anchor center for each cluster
-
-% If I wanted to save anchors that DBSCAN couldn't find
-if max(IDX) == 0
-    radius_and_coords = [anchored_radius, mean(anchored_coords), 0];
-
-% Save only the anchors that were found by DBSCAN
-elseif max(IDX) > 0
-    radius_and_coords = zeros(max(IDX),4);
-    for i=1:max(IDX)
-        % Find anchor center
-        x_y_anchor_coord = mean(anchored_coords(IDX==i,:));
-        % Define anchor radius
-        radius = max(pdist2(x_y_anchor_coord,anchored_coords(IDX==i,:)));
-        % Save to a variable
-        radius_and_coords(i,:) = [radius, x_y_anchor_coord, i];
-    end
-else
-    radius_and_coords = [];
-end
+radius_and_coords = dbscanAnchor( anchored_coords, search_radius, min_points, LOC_ACC );
 
 end

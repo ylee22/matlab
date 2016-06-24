@@ -53,7 +53,7 @@ function anchored_spots = mergeImmobileSpots(neighboring_spots, localization_acc
                     if ~isempty(new_anchored_spots)
                         
                         if ~(sum(size(new_anchored_spots))~=0 && sum(cellfun(@isempty,new_anchored_spots))~=length(new_anchored_spots))
-                            error('new anchored spots is empty')
+                            error('new anchored spot is empty')
                         end
                         
                         merged_marker = 1;

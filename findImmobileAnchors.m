@@ -42,7 +42,7 @@ function [ anchor_coords, anchored_spots, immobile_coords ] = findImmobileAnchor
         end
     end
 
-    % KD Tree of all the trajectory centers
+    % KD Tree of all the immobile spot centers
     kd_center = KDTreeSearcher(immobile_coords(:,4:5));
 
     % Indices of trajectories in finalTraj within the localization accuracy (20 nms)

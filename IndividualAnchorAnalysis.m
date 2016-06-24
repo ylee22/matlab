@@ -1,4 +1,4 @@
-[combFinalTraj,~,~] = combineTraj_faster(finalTraj,2,200);
+[combFinalTraj,~,~] = combineTraj_lessmemory(finalTraj,2,350);
 finalTrajmin5 = minimumTrajLength(combFinalTraj,5);
 
 localization_acc = 25;
@@ -48,7 +48,7 @@ elseif sum(cellfun(@length,cluster_anchor_coords)) ~= sum(cellfun(@length,cluste
 end
 
 % Combine both types of anchors together
-[combined_anchor_coords, converted_to_trajs]=combineAnchors(finalTrajmin5,cluster_anchor_coords,cluster_anchored_traj,immobile_coords,immobile_anchor_coords,immobile_anchored_spots,localization_acc*1.5, cell_area);
+[combined_anchor_coords, converted_to_trajs] = combineAnchors(finalTrajmin5,cluster_anchor_coords,cluster_anchored_traj,immobile_coords,immobile_anchor_coords,immobile_anchored_spots,localization_acc*1.5, cell_area);
 
 filtered_converted_to_trajs=converted_to_trajs(combined_anchor_coords(:,4)>0);
 filtered_combined_anchor_coords=combined_anchor_coords(combined_anchor_coords(:,4)>0,:);

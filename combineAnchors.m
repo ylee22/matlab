@@ -245,7 +245,13 @@ for anchor_idx = 1:length(flattened_trajs_spots)
             end
         end
     end
-        
+    
+    % Check to make sure that the trajs doesn't contain duplicate trajs
+    if length(unique(trajs{COUNTER})) ~= length(trajs{COUNTER})
+        display(COUNTER)
+        error('duplicate anchored trajs in trajs')
+    end
+    
 end
 
 % Get rid of empty, unused rows
@@ -265,35 +271,35 @@ while DUPLICATE_MARKER
     anchor_tree = KDTreeSearcher(larger_anchor_coords(:,2:3));
     % A n by 2 list of two closest anchors
     overlaps = knnsearch(anchor_tree, larger_anchor_coords(:,2:3), 'K', 2);
+    
+    % Remove duplicates here [a b] = [b a]
+    for duplicate = 1:length(overlaps)
+        first = overlaps(duplicate, 1);
+        second = overlaps(duplicate, 2);
+        if first > 0 && second > 0 && overlaps(first,1) == overlaps(second,2) && overlaps(first,2) == overlaps(second,1)
+            overlaps(duplicate,:) = -1;
+        end
+    end
+    
+    overlaps = overlaps(overlaps(:,1)>0,:);
+    
     overlap_idx = [];
     for anchor = 1:length(overlaps)
-        % If the anchor pair is within the first anchor's radius, keep the
-        % index in the overlap_idx list
+        % If the anchor pair is within the sum of each other's radius, they
+        % are overlapping and is recorded in the overlap_idx
         if pdist2(larger_anchor_coords(overlaps(anchor,1),2:3),larger_anchor_coords(overlaps(anchor,2),2:3)) <= larger_anchor_coords(overlaps(anchor,1),1) + larger_anchor_coords(overlaps(anchor,2),1)
             overlap_idx(end+1) = anchor;
         end
     end
     
-    % Mark duplicate rows for removal
-    % For every index of overlapping pairs of anchors
-    for duplicate_idx = 1:numel(overlap_idx)       
-        % If the second overlapping anchor is also in the overlap index
-        % list and the second anchor's first anchor is the same as the
-        % second's first anchor
-        if ismember(overlaps(overlap_idx(duplicate_idx),2), overlap_idx) && overlaps(overlaps(overlap_idx(duplicate_idx),2),2) == overlaps(overlap_idx(duplicate_idx),1)
-            % Mark for removal
-            overlap_idx(duplicate_idx) = -1;
-        end
-    end
-
     % Remove duplicate rows, if there are any
-    if sum(overlap_idx > 0) > 0
-        overlaps = overlaps(overlap_idx(overlap_idx>0), :);
-        DUPLICATE_MARKER = 1;
     % If there were no overlaps, stop the while loop
-    elseif isempty(overlap_idx)
+    if isempty(overlap_idx)
         overlaps = [];
         DUPLICATE_MARKER = 0;
+    else
+        overlaps = overlaps(overlap_idx, :);
+        DUPLICATE_MARKER = 1;
     end
 
     % Merge trajectory spots and get the new combined trajectories
@@ -401,17 +407,6 @@ if numel(trajs) ~= length(larger_anchor_coords)
     error('trajectory cell does not match combined anchor coords list')
 end
 
-
-% % 7. Find anchor duration for anchors with more than one anchored
-% % trajectory
-% 
-% % Find anchor duration. Get the starting and the ending frame numbers for
-% % all of the trajectories in each anchor
-% anchor_frames = frameNumbers(trajs, finalTraj);
-% 
-% % Get the first and last frames for all of the anchors
-% first_last_anchor_frames = firstLastFrame(anchor_frames);
-
 end
 
 % NEED TO FIX TO ALLOW OUT OF BOUNDS ON ONLY ONE SIDE NOT BOTH
@@ -484,36 +479,6 @@ function combined_trajs_and_spots = combineTrajsandSpots(trajs_and_spots1, trajs
         error('Marker does not exist')
     end
 
-end
-
-
-% Get the starting and the ending frame numbers for all of the trajectories in each anchor
-function anchor_frames = frameNumbers(anchored_trajectories, allTraj)
-    anchor_frames = cell(1,sum(cellfun(@length, anchored_trajectories) > 2));
-    frame_idx = 0;
-    for a = 1:numel(anchored_trajectories)
-        % Screen for anchors with more than one trajectory, the first element
-        % is a marker for flattened_trajs_spots
-        if numel(anchored_trajectories{a}) > 2
-            frame_idx = frame_idx + 1;
-            % 3 columns: anchor row ID, first, last The first element is
-            % negative (the corresponding index in flattened_trajs_spots)
-            firstandlast = zeros(numel(anchored_trajectories{a}) - 1, 3);
-            for b = 2:numel(anchored_trajectories{a})
-                firstandlast(b-1,:) = [a, allTraj{anchored_trajectories{a}(b)}(1,6:7)];
-            end
-            anchor_frames{frame_idx} = firstandlast;
-        end
-    end
-end
-
-
-% Find the first and the last frame for each anchor
-function first_last_frames = firstLastFrame(anchor_frames)
-    first_last_frames = zeros(length(anchor_frames), 3);
-    for q = 1:length(anchor_frames)
-        first_last_frames(q,:)=[anchor_frames{q}(1,1), min(anchor_frames{q}(:,2)), max(anchor_frames{q}(:,3))];
-    end
 end
 
 
