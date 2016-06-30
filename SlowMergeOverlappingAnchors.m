@@ -1,4 +1,4 @@
-function [ anchor_coords, anchor_trajs ] = SlowMergeOverlappingAnchors( anchor_coords, anchor_trajs, finalTrajmin5, search_radius, min_points, LOC_ACC, GLOBAL_DENSITY )
+function [ anchor_coords, anchor_trajs ] = SlowMergeOverlappingAnchors( anchor_coords, anchor_trajs, finalTrajmin5, search_radius, LOC_ACC, POINT_DENSITY )
 %UNTITLED2 Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -32,15 +32,13 @@ while DUPLICATE_MARKER
         if pdist(anchor_coords(overlaps(anchor,:),2:3)) == 0
             anchor_coords(overlaps(anchor, 1),:) = NaN;
             anchor_trajs{overlaps(anchor,1)} = [];
-        elseif pdist(anchor_coords(overlaps(anchor,:),2:3)) <= sum(anchor_coords(overlaps(anchor,:),1))
+        elseif pdist(anchor_coords(overlaps(anchor,:),2:3)) <= sum(anchor_coords(overlaps(anchor,:),1))*1.1
             counter = counter + 1;
             overlap_idx(counter) = anchor;
         end
     end
     
     overlap_idx = overlap_idx(1:counter);
-    
-    size(overlap_idx)
     
     % Remove duplicate rows, if there are any
     % If there were no overlaps, stop the while loop
@@ -75,8 +73,8 @@ while DUPLICATE_MARKER
             
             % Remake and add to the end
             [anchored_coords, ~] = anchoredFrameCoords(finalTrajmin5, combined_trajs);
-            
-            radius_coord_dbscanID = dbscanAnchor(anchored_coords, search_radius, min_points, LOC_ACC, GLOBAL_DENSITY);
+            min_points = floor(size(anchored_coords,1)/2);
+            radius_coord_dbscanID = dbscanAnchor(anchored_coords, search_radius, min_points, LOC_ACC, POINT_DENSITY);
             % 5 columns: [radius, x, y, dbscan cluster ID]
             anchor_coords = cat(1, anchor_coords, radius_coord_dbscanID);
             

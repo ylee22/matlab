@@ -50,10 +50,11 @@ end
 % Combine both types of anchors together
 [combined_anchor_coords, converted_to_trajs] = combineAnchors(finalTrajmin5,cluster_anchor_coords,cluster_anchored_traj,immobile_coords,immobile_anchor_coords,immobile_anchored_spots,localization_acc*1.5, cell_area);
 
-filtered_converted_to_trajs=converted_to_trajs(combined_anchor_coords(:,4)>0);
-filtered_combined_anchor_coords=combined_anchor_coords(combined_anchor_coords(:,4)>0,:);
+if sum(combined_anchor_coords(:,4)==0) > 0
+    error('anchors that failed dbscan are being added')
+end
 
-if length(filtered_converted_to_trajs) ~= length(filtered_combined_anchor_coords)
+if length(converted_to_trajs) ~= length(combined_anchor_coords)
     error('rows are mismatched')
 end
 
@@ -63,8 +64,8 @@ for trajID = 1:length(finalTrajmin5)
 end
 
 % Filter artifacts
-lt100_anchor_coords = filtered_combined_anchor_coords(filtered_combined_anchor_coords(:,1)<=100,:);
-lt100_trajs = filtered_converted_to_trajs(filtered_combined_anchor_coords(:,1)<=100);
+lt100_anchor_coords = combined_anchor_coords(combined_anchor_coords(:,1)<=100,:);
+lt100_trajs = converted_to_trajs(combined_anchor_coords(:,1)<=100);
 
 % anchored and free trajectories Subtract the first element (row number in
 % the original traj, sometimes DBSCAN separates into multiple anchors)

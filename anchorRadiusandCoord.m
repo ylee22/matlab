@@ -124,6 +124,6 @@ elseif ~isempty(trajs)
 
 end
 
-radius_and_coords = dbscanAnchor( anchored_coords, search_radius, min_points, LOC_ACC );
+radius_and_coords = dbscanAnchor( anchored_coords, search_radius, min_points, LOC_ACC, GLOBAL_DENSITY );
 
 end

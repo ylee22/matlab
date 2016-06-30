@@ -1,4 +1,4 @@
-function [ anchor_coords, anchor_trajs ] = FastMergeOverlappingAnchors( pre_anchor_coords, pre_anchor_trajs, finalTrajmin5, search_radius,min_points,LOC_ACC,GLOBAL_DENSITY )
+function [ anchor_coords, anchor_trajs ] = FastMergeOverlappingAnchors( pre_anchor_coords, pre_anchor_trajs, finalTrajmin5, search_radius,LOC_ACC,POINT_DENSITY )
 % This function combines anchors that are within localization accuracy
 % radius of each other and returns the merged list of anchor coordinates
 % and the trajectories that define the anchor coordinates.
@@ -53,7 +53,8 @@ if length(new_anchor_trajs) ~= length(pre_anchor_trajs)
     for anchor = 1:length(new_anchor_trajs)
         % Find potential anchors
         [anchored_coords, ~] = anchoredFrameCoords(finalTrajmin5, new_anchor_trajs{anchor});
-        radius_coord_dbscanID = dbscanAnchor(anchored_coords,search_radius,min_points,LOC_ACC,GLOBAL_DENSITY);
+        min_points = floor(size(anchored_coords,1)/2);
+        radius_coord_dbscanID = dbscanAnchor(anchored_coords,search_radius,min_points,LOC_ACC,POINT_DENSITY);
         % 5 columns: [radius, x, y, dbscan cluster ID]
         anchor_coords = cat(1,anchor_coords,radius_coord_dbscanID);
         for anchor_idx = 1:size(radius_coord_dbscanID,1)
