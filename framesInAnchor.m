@@ -5,7 +5,7 @@ function [ frames_in_anchor ] = framesInAnchor( converted_to_trajs, combined_anc
 frames_in_anchor = [];
 
 % Find which trajectories start and finish outside of anchors
-% Find the anchored trajectorie rows (first element is a marker)
+% Find the anchored trajectory rows (first element is a marker)
 anchored_traj_rows = zeros(1,sum(cellfun(@numel,converted_to_trajs))-numel(converted_to_trajs));
 COUNTER = 1;
 for anchorID = 1:numel(converted_to_trajs)

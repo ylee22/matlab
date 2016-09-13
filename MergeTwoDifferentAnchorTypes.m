@@ -1,4 +1,4 @@
-function [ anchor_coords, anchor_trajs ] = MergeTwoDifferentAnchorTypes( anchor_coords_1, anchor_coords_2, anchor_trajs_1, anchor_trajs_2, LOC_ACC, POINT_DENSITY, finalTrajmin5 )
+function [ anchor_coords, anchor_trajs ] = MergeTwoDifferentAnchorTypes( anchor_coords_1, anchor_coords_2, anchor_trajs_1, anchor_trajs_2, LOC_ACC, POINT_DENSITY, finalTrajmin5, search_radius )
 %UNTITLED6 Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -47,7 +47,7 @@ anchor_trajs_2 = filterTraj(anchor_trajs_2, 1);
 new_anchor_coords = [temp_new_coords; anchor_coords_1; anchor_coords_2];
 new_anchor_trajs = cat(2,temp_trajs, anchor_trajs_1, anchor_trajs_2);
 
-search_radius = 50;
+% search_radius = 50;
 % min_points = 5;
 
 % Merge slower

@@ -2,14 +2,6 @@ function [ anchor_coords_1, anchor_trajs_1 ] = ImmobileVertexAnchors( finalTrajm
 %UNTITLED8 Summary of this function goes here
 %   Detailed explanation goes here
 
-% LOC_ACC = 25;
-
-% % Find the total number of frames/vertices
-% total_vertices = 0;
-% for traj_idx = 1:length(finalTrajmin5)
-%     total_vertices = total_vertices + size(finalTrajmin5{traj_idx}, 1);
-% end
-
 % Find the number of frames involved in immobile steps
 immobile_vertices = 0;
 immobile_traj_frames = sortrows(immobile_coords(:,1:3));
@@ -71,8 +63,6 @@ end
 % Find the probability of each frame being immobile
 prob_immobile = immobile_vertices/total_vertices;
 % prob_immobile = 0.0710;
-% min_points = 4;
-% POINT_DENSITY = total_vertices/cell_area;
 
 % Threshold probability for number of immobile spots based on length
 % Expected number of immobile vertices in each trajectory based on the
@@ -100,8 +90,6 @@ slow_trajs = slow_trajs(1:counter);
 if size(slow_anchors,1) ~= length(slow_trajs)
     error('anchors and trajs do not match')
 end
-
-% search_radius = 50;
 
 % Quick merge
 [merged_coords, merged_trajs] = FastMergeOverlappingAnchors(slow_anchors, slow_trajs, finalTrajmin5, search_radius, LOC_ACC, POINT_DENSITY);

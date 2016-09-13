@@ -1,15 +1,13 @@
-function [ anchor_coords, anchor_trajs ] = SlowMergeOverlappingAnchors( anchor_coords, anchor_trajs, finalTrajmin5, search_radius, LOC_ACC, POINT_DENSITY )
-%UNTITLED2 Summary of this function goes here
-%   Detailed explanation goes here
-
+function [ anchor_coords, anchor_trajs ] = SlowMergeOverlappingAnchors( anchor_coords, anchor_trajs, finalTrajmin5, SEARCH_RADIUS, LOC_ACC, POINT_DENSITY )
 % 6. Now that anchor radii and centers have been somewhat finalized,
 % recheck for overlaps. FLATTENED_TRAJS_SPOTS DOES NOT MATCH
 % LARGER_ANCHOR_COORDS. LARGER_ANCHOR_COORDS IS MATCHED WITH TRAJS.
 % I can't make a kd tree for all of them because each anchor is going to
 % have a different search radius (anchor radius)
 
+% There has to be at least 2 anchors to see if they overlap
 DUPLICATE_MARKER = 1;
-while DUPLICATE_MARKER
+while DUPLICATE_MARKER && numel(anchor_trajs) > 1
     DUPLICATE_MARKER = 0;
     anchor_tree = KDTreeSearcher(anchor_coords(:,2:3));
     % A n by 2 list of two closest anchors
@@ -28,7 +26,7 @@ while DUPLICATE_MARKER
     % Look for overlaps
     overlap_idx = zeros(1,size(overlaps,1));
     counter = 0;
-    for anchor = 1:length(overlaps)
+    for anchor = 1:size(overlaps, 1)
         if pdist(anchor_coords(overlaps(anchor,:),2:3)) == 0
             anchor_coords(overlaps(anchor, 1),:) = NaN;
             anchor_trajs{overlaps(anchor,1)} = [];
@@ -73,18 +71,21 @@ while DUPLICATE_MARKER
             
             % Remake and add to the end
             [anchored_coords, ~] = anchoredFrameCoords(finalTrajmin5, combined_trajs);
-            min_points = floor(size(anchored_coords,1)/2);
-            radius_coord_dbscanID = dbscanAnchor(anchored_coords, search_radius, min_points, LOC_ACC, POINT_DENSITY);
-            % 5 columns: [radius, x, y, dbscan cluster ID]
-            anchor_coords = cat(1, anchor_coords, radius_coord_dbscanID);
+            min_points = max(floor(size(anchored_coords, 1)/2), 3);
+            radius_coord_dbscanID = dbscanAnchor(anchored_coords, SEARCH_RADIUS, min_points, LOC_ACC, POINT_DENSITY);
             
-            for idx = 1:size(radius_coord_dbscanID, 1)
-                % holds trajectories (finalTrajmin5 row number)
-                anchor_trajs{end+1} = combined_trajs;
-            end
-            
-            if size(anchor_coords,1) ~= length(anchor_trajs)
-                error('coords and trajs do not match')
+            if ~isempty(radius_coord_dbscanID)
+                % 5 columns: [radius, x, y, dbscan cluster ID]
+                anchor_coords = cat(1, anchor_coords, radius_coord_dbscanID);
+
+                for idx = 1:size(radius_coord_dbscanID, 1)
+                    % holds trajectories (finalTrajmin5 row number)
+                    anchor_trajs{end+1} = combined_trajs;
+                end
+
+                if size(anchor_coords,1) ~= length(anchor_trajs)
+                    error('coords and trajs do not match')
+                end
             end
              
         end

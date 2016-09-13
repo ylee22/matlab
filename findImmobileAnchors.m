@@ -1,4 +1,4 @@
-function [ anchor_coords, anchored_spots, immobile_coords ] = findImmobileAnchors( finalTraj, localization_acc, cell_area )
+function [ slow_immobile_coords, slow_immobile_trajs, immobile_coords ] = findImmobileAnchors( finalTrajmin5, LOC_ACC, POINT_DENSITY, SEARCH_RADIUS )
 % Summary: finds the immobile anchors by merging immobile spots by
 % localization accuracy radius circles
 
@@ -34,10 +34,10 @@ function [ anchor_coords, anchored_spots, immobile_coords ] = findImmobileAnchor
     % [traj row number in finalTraj, 1st frame, 2nd frame, averaged x,
     % averaged y]
     immobile_coords = [];
-    for i = 1:length(finalTraj)
-        for j = 1:size(finalTraj{i},1)-1
-            if pdist2(finalTraj{i}(j,1:2), finalTraj{i}(j+1,1:2)) < localization_acc
-                immobile_coords(end+1,:) = [i,j,j+1,mean(finalTraj{i}(j:j+1,1:2))];
+    for i = 1:length(finalTrajmin5)
+        for j = 1:size(finalTrajmin5{i},1)-1
+            if pdist2(finalTrajmin5{i}(j,1:2), finalTrajmin5{i}(j+1,1:2)) < LOC_ACC
+                immobile_coords(end+1,:) = [i,j,j+1,mean(finalTrajmin5{i}(j:j+1,1:2))];
             end
         end
     end
@@ -46,37 +46,51 @@ function [ anchor_coords, anchored_spots, immobile_coords ] = findImmobileAnchor
     kd_center = KDTreeSearcher(immobile_coords(:,4:5));
 
     % Indices of trajectories in finalTraj within the localization accuracy (20 nms)
-    neighboring_spots = rangesearch(kd_center,immobile_coords(:,4:5),localization_acc);
+    neighboring_spots = rangesearch(kd_center,immobile_coords(:,4:5),LOC_ACC);
 
     % Remove duplicate rows of overlapping trajectories
     % Sometimes two rows are identical, so remove the latter row
     neighboring_spots = removeDuplicateRows(neighboring_spots);
-
+    
+    % Find anchor coordinates for 20 nm circles (localization accuracy)
+    pre_anchor_spots = filterTraj(neighboring_spots, 2);
+    
+    pre_anchor_coords = findImmobileAnchorCoord(pre_anchor_spots, immobile_coords(:,4:5));
+    
+    pre_anchor_trajs = cell(1, numel(pre_anchor_spots));
+    % Convert spots into trajectories
+    for spot_idx = 1:numel(pre_anchor_spots)
+        pre_anchor_trajs{spot_idx} = unique(immobile_coords(pre_anchor_spots{spot_idx},1))';
+    end
+    
+    [fast_immobile_coords, fast_immobile_trajs] = FastMergeOverlappingAnchors(pre_anchor_coords,pre_anchor_trajs,finalTrajmin5,SEARCH_RADIUS,LOC_ACC,POINT_DENSITY);
+    [slow_immobile_coords, slow_immobile_trajs] = SlowMergeOverlappingAnchors(fast_immobile_coords,fast_immobile_trajs,finalTrajmin5,SEARCH_RADIUS,LOC_ACC,POINT_DENSITY);
+    
     % Find anchors here
-    anchored_spots = mergeImmobileSpots(neighboring_spots, localization_acc, immobile_coords(:,4:5));
+%     anchored_spots = mergeImmobileSpots(neighboring_spots, localization_acc, immobile_coords(:,4:5));
     
     % Remove empty cells
-    anchored_spots = anchored_spots(~cellfun(@isempty, anchored_spots));
+%     anchored_spots = anchored_spots(~cellfun(@isempty, anchored_spots));
     
     % Filter based on the minimum number of spots per anchor
     % Calculate the probability and the threshold for min spots/anchor
-    anchor_coords = {};
-    for anchor_radius_idx = 1:length(anchored_spots)
-        if ~isempty(anchored_spots{anchor_radius_idx})
-            expected_number_of_immobile_spots = (length(immobile_coords)/cell_area)*pi*(20*anchor_radius_idx)^2;
-            minAnchoredSpots = 2;
-            probability = 1;
-            while probability > 0.05
-                minAnchoredSpots = minAnchoredSpots+1;
-                probability = 1 - poisscdf(minAnchoredSpots,expected_number_of_immobile_spots);
-            end
-            anchored_spots{anchor_radius_idx} = filterTraj(anchored_spots{anchor_radius_idx}, minAnchoredSpots);
-            if ~isempty(anchored_spots{anchor_radius_idx})
-                % Remake anchor coordinates
-                anchor_coords{anchor_radius_idx} = findImmobileAnchorCoord(anchored_spots{anchor_radius_idx},immobile_coords(:,4:5));
-            end
-        end
-    end
+%     anchor_coords = {};
+%     for anchor_radius_idx = 1:length(anchored_spots)
+%         if ~isempty(anchored_spots{anchor_radius_idx})
+%             expected_number_of_immobile_spots = (length(immobile_coords)/cell_area)*pi*(20*anchor_radius_idx)^2;
+%             minAnchoredSpots = 2;
+%             probability = 1;
+%             while probability > 0.05
+%                 minAnchoredSpots = minAnchoredSpots+1;
+%                 probability = 1 - poisscdf(minAnchoredSpots,expected_number_of_immobile_spots);
+%             end
+%             anchored_spots{anchor_radius_idx} = filterTraj(anchored_spots{anchor_radius_idx}, minAnchoredSpots);
+%             if ~isempty(anchored_spots{anchor_radius_idx})
+%                 % Remake anchor coordinates
+%                 anchor_coords{anchor_radius_idx} = findImmobileAnchorCoord(anchored_spots{anchor_radius_idx},immobile_coords(:,4:5));
+%             end
+%         end
+%     end
     
 %     % Convert immobile spots into trajectories (same format as cluster
 %     % anchor)

@@ -16,6 +16,7 @@ if max(IDX) > 1
         OVERLAP = 0;
         anchors = zeros(max(IDX),2);
         radii = zeros(max(IDX),1);
+        % Find anchor locations and radii
         for anchor = 1:max(IDX)
             anchors(anchor,:) = [mean(anchored_coords(IDX==anchor,1)) mean(anchored_coords(IDX==anchor,2))];
             radii(anchor) = max(pdist2(anchors(anchor,:),anchored_coords(IDX==anchor,:)));
@@ -38,14 +39,8 @@ if max(IDX) > 1
     end
 end
 
-% Define anchor center for each cluster
-
-% % If DBSCAN doesn't find anything
-% anchored_radius = max(pdist(anchored_coords))/2;
-
-% % If I wanted to save anchors that DBSCAN couldn't find
-% if max(IDX) == 0
-%     radius_and_coords = [anchored_radius, mean(anchored_coords), 0];
+% Filter here for trajectories with mobile portion
+IDX = AnchorsWithFreeComponent(IDX, 2, anchored_coords);
 
 % Save only the anchors that were found by DBSCAN
 if max(IDX) > 0
@@ -55,15 +50,16 @@ if max(IDX) > 0
         x_y_anchor_coord = mean(anchored_coords(IDX==i,:));
         % Define anchor radius
         radius = max(pdist2(x_y_anchor_coord,anchored_coords(IDX==i,:)));
-%         radius_and_coords(i,:) = [radius, x_y_anchor_coord, i];
         
         % Check to make sure that it's more dense than expected
         expected_number_of_points = ceil(GLOBAL_DENSITY*pi*radius^2);
-        if 1-poisscdf(size(anchored_coords,1), expected_number_of_points) < 0.05
+        if 1-poisscdf(size(anchored_coords(IDX==i),1), expected_number_of_points) < 0.05
             
             % Save to a variable
             radius_and_coords(i,:) = [radius, x_y_anchor_coord, i];
-
+            
+        else
+            radius_and_coords = [];
         end
         
     end

@@ -1,4 +1,4 @@
-function [ anchor_coords, anchor_trajs ] = FastMergeOverlappingAnchors( pre_anchor_coords, pre_anchor_trajs, finalTrajmin5, search_radius,LOC_ACC,POINT_DENSITY )
+function [ anchor_coords, anchor_trajs ] = FastMergeOverlappingAnchors( pre_anchor_coords, pre_anchor_trajs, finalTrajmin5, SEARCH_RADIUS, LOC_ACC, POINT_DENSITY )
 % This function combines anchors that are within localization accuracy
 % radius of each other and returns the merged list of anchor coordinates
 % and the trajectories that define the anchor coordinates.
@@ -24,12 +24,15 @@ while min(pdist(new_pre_anchors)) < LOC_ACC
     % overlapping_pre_anchors are indices of new_anchor_trajs, the traj ID
     % is stored in new_anchor_trajs
     for idx = 1:length(overlapping_pre_anchors)
+        % Find non empty entries (could have been deleted from before)
+        non_empty = ~cellfun(@isempty,new_anchor_trajs(overlapping_pre_anchors{idx}));
+        current_overlapping = overlapping_pre_anchors{idx}(non_empty);
         % Remake center
-        temp_new_coords(idx, :) = mean(new_pre_anchors(overlapping_pre_anchors{idx},:));
-        temp_trajs{idx} = unique([new_anchor_trajs{overlapping_pre_anchors{idx}}]);
+        temp_new_coords(idx, :) = [mean(new_pre_anchors(current_overlapping,1)), mean(new_pre_anchors(current_overlapping,2))];
+        temp_trajs{idx} = unique([new_anchor_trajs{current_overlapping}]);
         % Delete the merged trajs
-        for removed = 1:length(overlapping_pre_anchors{idx})
-            new_anchor_trajs{overlapping_pre_anchors{idx}(removed)} = [];
+        for removed = 1:length(current_overlapping)
+            new_anchor_trajs{current_overlapping(removed)} = [];
         end
     end
 
@@ -47,14 +50,18 @@ while min(pdist(new_pre_anchors)) < LOC_ACC
     
 end
 
+% Filter at the end to remove deleted anchors
+new_anchor_trajs = filterTraj(new_anchor_trajs,1);
+
 anchor_coords = [];
 anchor_trajs = {};
-if length(new_anchor_trajs) ~= length(pre_anchor_trajs)
-    for anchor = 1:length(new_anchor_trajs)
-        % Find potential anchors
-        [anchored_coords, ~] = anchoredFrameCoords(finalTrajmin5, new_anchor_trajs{anchor});
-        min_points = floor(size(anchored_coords,1)/2);
-        radius_coord_dbscanID = dbscanAnchor(anchored_coords,search_radius,min_points,LOC_ACC,POINT_DENSITY);
+for anchor = 1:length(new_anchor_trajs)
+    % Find potential anchors
+    [anchored_coords, ~] = anchoredFrameCoords(finalTrajmin5, new_anchor_trajs{anchor});
+    min_points = max(floor(size(anchored_coords, 1)/2), 3);
+    radius_coord_dbscanID = dbscanAnchor(anchored_coords,SEARCH_RADIUS,min_points,LOC_ACC,POINT_DENSITY);
+
+    if ~isempty(radius_coord_dbscanID)
         % 5 columns: [radius, x, y, dbscan cluster ID]
         anchor_coords = cat(1,anchor_coords,radius_coord_dbscanID);
         for anchor_idx = 1:size(radius_coord_dbscanID,1)

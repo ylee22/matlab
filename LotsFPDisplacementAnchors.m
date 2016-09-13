@@ -1,4 +1,4 @@
-function [ anchor_coords_2, anchor_trajs_2 ] = TotalVariationAnchors( finalTrajmin5, search_radius, POINT_DENSITY, LOC_ACC, threshold_dist )
+function [ anchor_coords_2, anchor_trajs_2 ] = LotsFPDisplacementAnchors( finalTrajmin5, search_radius, POINT_DENSITY, LOC_ACC, threshold_dist )
 % Finds anchors based on total variation analysis, which measures the
 % displacement from the origin for each trajectory. If a trajectory is
 % stuck, then the displacement from the origin will be less than the anchor
@@ -19,11 +19,12 @@ for traj = 1:length(finalTrajmin5)
     % For x min frames, need to check one less min from last to catch
     % anchors at the end
     min_frames = max(floor(size(finalTrajmin5{traj},1)/2), 3);
-    origins = finalTrajmin5{traj}(1:end - min_frames + 1, 1:2);
-    disp_from_origin = pdist2(origins, finalTrajmin5{traj}(:, 1:2));
+    disp_from_origin = pdist2(finalTrajmin5{traj}(:, 1:2), finalTrajmin5{traj}(:, 1:2));
     
     for start = 1:size(disp_from_origin,1)
-        if sum(disp_from_origin(start, start + 1:end) <= threshold_dist) > min_frames
+        % Two states: immobile and mobile
+        idx = kmeans(disp_from_origin(start, :), 2);
+        if sum(disp_from_origin(start, :) <= threshold_dist) > min_frames && ( mean(disp_from_origin(start, idx == 2)) > threshold_dist || mean(disp_from_origin(start, idx == 1)) > threshold_dist )
             counter = counter + 1;
             [anchored_coords, ~] = anchoredFrameCoords(finalTrajmin5, traj);
             stuck_anchors(counter, :) = mean(anchored_coords);
@@ -48,4 +49,3 @@ end
 [anchor_coords_2, anchor_trajs_2] = SlowMergeOverlappingAnchors(merged_coords, merged_trajs, finalTrajmin5, search_radius, LOC_ACC, POINT_DENSITY );
 
 end
-

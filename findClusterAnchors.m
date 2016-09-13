@@ -1,4 +1,4 @@
-function [ anchor_coords, anchored_traj ] = findClusterAnchors( finalTraj, localization_acc, cell_area )
+function [ slow_cluster_coords, slow_cluster_trajs ] = findClusterAnchors( finalTrajmin5, LOC_ACC, POINT_DENSITY, SEARCH_RADIUS )
 % Summary: finds the cluster anchors by merging trajectory centroids by
 % localization accuracy radius circles
 
@@ -28,9 +28,9 @@ function [ anchor_coords, anchored_traj ] = findClusterAnchors( finalTraj, local
 
     % Find center coordinates of all trajectories
     % center_coords: n by 2 matrix with x and y coords of traj centroids
-    center_coords=zeros(length(finalTraj),2);
-    for c=1:length(finalTraj)
-        center_coords(c,:)=[mean(finalTraj{c}(:,1)),mean(finalTraj{c}(:,2))];
+    center_coords=zeros(length(finalTrajmin5),2);
+    for c=1:length(finalTrajmin5)
+        center_coords(c,:)=[mean(finalTrajmin5{c}(:,1)),mean(finalTrajmin5{c}(:,2))];
     end
 
     % KD Tree of all the trajectory centers
@@ -38,36 +38,42 @@ function [ anchor_coords, anchored_traj ] = findClusterAnchors( finalTraj, local
 
     % Trajectories (indices of finalTraj) within the localization accuracy (20 nms)
     % neighboring_traj: cell array of vectors containing overlapping trajs
-    neighboring_traj=rangesearch(kd_center,center_coords,localization_acc);
+    neighboring_traj=rangesearch(kd_center,center_coords,LOC_ACC);
 
     % Remove duplicate rows of overlapping trajectories, e.g. [1 2] = [2 1]
     % Sometimes two rows are identical, so remove the latter row
     neighboring_traj = removeDuplicateRows(neighboring_traj);
+    
+    pre_anchor_trajs = filterTraj(neighboring_traj, 2);
+    pre_anchor_coords = findClusterAnchorCoord(pre_anchor_trajs, center_coords);
+    
+    [fast_cluster_coords, fast_cluster_trajs] = FastMergeOverlappingAnchors(pre_anchor_coords,pre_anchor_trajs,finalTrajmin5,SEARCH_RADIUS,LOC_ACC,POINT_DENSITY);
+    [slow_cluster_coords, slow_cluster_trajs] = SlowMergeOverlappingAnchors(fast_cluster_coords,fast_cluster_trajs,finalTrajmin5,SEARCH_RADIUS,LOC_ACC,POINT_DENSITY);
 
     % Find anchors here
-    anchored_traj = mergeClusterAnchors(neighboring_traj, localization_acc, center_coords);
+%     anchored_traj = mergeClusterAnchors(neighboring_traj, localization_acc, center_coords);
     
     % Remove empty cells
-    anchored_traj = anchored_traj(~cellfun(@isempty, anchored_traj));
+%     anchored_traj = anchored_traj(~cellfun(@isempty, anchored_traj));
     
     % Filter based on the minimum number of trajectories per anchor
     % Calculate the probability and the threshold for min traj/anchor
-    anchor_coords = {};
-    for anchor_radius_idx = 1:length(anchored_traj)
-        if ~isempty(anchored_traj{anchor_radius_idx})
-            traj_density = (length(finalTraj)/cell_area)*pi*(20*anchor_radius_idx)^2;
-            minAnchoredTraj = 2;
-            probability = 1;
-            while probability > 0.05
-                minAnchoredTraj = minAnchoredTraj + 1;
-                probability = 1-poisscdf(minAnchoredTraj,traj_density);
-            end
-            anchored_traj{anchor_radius_idx} = filterTraj(anchored_traj{anchor_radius_idx}, minAnchoredTraj);
-            if ~isempty(anchored_traj{anchor_radius_idx})
-                % Remake anchor coordinates
-                anchor_coords{anchor_radius_idx} = findClusterAnchorCoord(anchored_traj{anchor_radius_idx}, center_coords);
-            end
-        end
-    end
+%     anchor_coords = {};
+%     for anchor_radius_idx = 1:length(anchored_traj)
+%         if ~isempty(anchored_traj{anchor_radius_idx})
+%             traj_density = (length(finalTrajmin5)/cell_area)*pi*(20*anchor_radius_idx)^2;
+%             minAnchoredTraj = 2;
+%             probability = 1;
+%             while probability > 0.05
+%                 minAnchoredTraj = minAnchoredTraj + 1;
+%                 probability = 1-poisscdf(minAnchoredTraj,traj_density);
+%             end
+%             anchored_traj{anchor_radius_idx} = filterTraj(anchored_traj{anchor_radius_idx}, minAnchoredTraj);
+%             if ~isempty(anchored_traj{anchor_radius_idx})
+%                 % Remake anchor coordinates
+%                 anchor_coords{anchor_radius_idx} = findClusterAnchorCoord(anchored_traj{anchor_radius_idx}, center_coords);
+%             end
+%         end
+%     end
     
 end

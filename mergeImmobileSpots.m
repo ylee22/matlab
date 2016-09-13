@@ -19,7 +19,7 @@ function anchored_spots = mergeImmobileSpots(neighboring_spots, localization_acc
     anchor_coords{1} = findImmobileAnchorCoord(anchored_spots{1}, immobile_coords_only);
 
     merged_marker = 1;
-    % For each of the anchors with radius 20n, let n be a natural number
+    % For each of the anchors with radius 20n, where n is a natural number
     while merged_marker
         merged_marker = 0;
         for i = 1:length(anchor_coords)
