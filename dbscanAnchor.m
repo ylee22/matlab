@@ -37,10 +37,22 @@ if max(IDX) > 1
             end
         end
     end
+    
+    % Most trajectories with more than 1 anchor doesn't look like anchors
+    % Throw away trajectories that have adjacent points in two different
+    % anchors IDX = [1 2 1 2 1 2 1]
+    if max(IDX) > 1
+        first_anchor = find(IDX == 1);
+        second_anchor = find(IDX == 2);
+        if ismember(2, IDX(min(first_anchor):max(first_anchor))) || ismember(1, IDX(min(second_anchor):max(second_anchor)))
+            IDX = 0;
+        end
+    end
+    
 end
 
 % Filter here for trajectories with mobile portion
-IDX = AnchorsWithFreeComponent(IDX, 2, anchored_coords);
+[IDX, anchored_duration] = AnchorsWithFreeComponent(IDX, 2, anchored_coords);
 
 % Save only the anchors that were found by DBSCAN
 if max(IDX) > 0
@@ -56,7 +68,7 @@ if max(IDX) > 0
         if 1-poisscdf(size(anchored_coords(IDX==i),1), expected_number_of_points) < 0.05
             
             % Save to a variable
-            radius_and_coords(i,:) = [radius, x_y_anchor_coord, i];
+            radius_and_coords(i,:) = [radius, x_y_anchor_coord, anchored_duration];
             
         else
             radius_and_coords = [];
