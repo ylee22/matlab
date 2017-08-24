@@ -1,4 +1,4 @@
-function [ anchor_coords, anchor_trajs ] = FastMergeOverlappingAnchors( pre_anchor_coords, pre_anchor_trajs, finalTrajmin5, SEARCH_RADIUS, LOC_ACC, POINT_DENSITY )
+function [ anchor_coords, anchor_trajs ] = FastMergeOverlappingAnchors( pre_anchor_coords, pre_anchor_trajs, finalTrajmin5, SEARCH_RADIUS, LOC_ACC, POINT_DENSITY, ABS_MIN_POINTS, min_fraction )
 % This function combines anchors that are within localization accuracy
 % radius of each other and returns the merged list of anchor coordinates
 % and the trajectories that define the anchor coordinates.
@@ -44,7 +44,7 @@ while min(pdist(new_pre_anchors)) < LOC_ACC
     new_pre_anchors = cat(1, remaining_pre_anchors, temp_new_coords);
     new_anchor_trajs = cat(2, new_anchor_trajs, temp_trajs);
     
-    if length(new_pre_anchors) ~= length(new_anchor_trajs)
+    if size(new_pre_anchors, 1) ~= numel(new_anchor_trajs)
         error('anchors and trajs do not match')
     end
     
@@ -56,20 +56,33 @@ new_anchor_trajs = filterTraj(new_anchor_trajs,1);
 anchor_coords = [];
 anchor_trajs = {};
 for anchor = 1:length(new_anchor_trajs)
+    
     % Find potential anchors
-    [anchored_coords, ~] = anchoredFrameCoords(finalTrajmin5, new_anchor_trajs{anchor});
-    min_points = max(floor(size(anchored_coords, 1)/2), 3);
-    radius_coord_dbscanID = dbscanAnchor(anchored_coords,SEARCH_RADIUS,min_points,LOC_ACC,POINT_DENSITY);
-
-    if ~isempty(radius_coord_dbscanID)
+    if numel(new_anchor_trajs{anchor}) > 1
+        combined_trajs = new_anchor_trajs{anchor};
+        trajs_coords = {};
+        [trajs_coords{1:numel(combined_trajs)}] = deal(finalTrajmin5{combined_trajs});
+        trajs_coords = cellfun(@(x) x(:,1:2), trajs_coords, 'UniformOutput', false);
+    else
+        trajs_coords = {finalTrajmin5{new_anchor_trajs{anchor}}(:,1:2)};
+    end
+    
+    [radius_coord, trajs] = dbscanAnchor(SEARCH_RADIUS, LOC_ACC, POINT_DENSITY, trajs_coords, new_anchor_trajs{anchor}, ABS_MIN_POINTS, min_fraction);
+    
+    if isempty(radius_coord)
+        min_fraction2 = 3;
+        [radius_coord, trajs] = dbscanAnchor(SEARCH_RADIUS, LOC_ACC, POINT_DENSITY, trajs_coords, new_anchor_trajs{anchor}, ABS_MIN_POINTS, min_fraction2);
+    end
+    
+    if ~isempty(radius_coord)
         % 5 columns: [radius, x, y, dbscan cluster ID]
-        anchor_coords = cat(1,anchor_coords,radius_coord_dbscanID);
-        for anchor_idx = 1:size(radius_coord_dbscanID,1)
-            % holds trajectories (finalTrajmin5 row number)
-            anchor_trajs{end+1} = new_anchor_trajs{anchor};
-        end
+        anchor_coords = cat(1, anchor_coords,radius_coord);
 
-        if size(anchor_coords,1) ~= length(anchor_trajs)
+        % holds trajectories (finalTrajmin5 row number)
+        anchor_trajs = cat(2, anchor_trajs, trajs);
+
+
+        if size(anchor_coords, 1) ~= length(anchor_trajs)
             error('anchors and trajs do not match')
         end
     end

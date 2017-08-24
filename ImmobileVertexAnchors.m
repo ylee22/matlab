@@ -92,10 +92,10 @@ if size(slow_anchors,1) ~= length(slow_trajs)
 end
 
 % Quick merge
-[merged_coords, merged_trajs] = FastMergeOverlappingAnchors(slow_anchors, slow_trajs, finalTrajmin5, search_radius, LOC_ACC, POINT_DENSITY);
+[merged_coords, merged_trajs] = FastMergeOverlappingAnchors(slow_anchors, slow_trajs, finalTrajmin5, search_radius, LOC_ACC, POINT_DENSITY, min_points);
 
 % Merge overlapping anchors and finalize anchors
-[anchor_coords_1, anchor_trajs_1] = SlowMergeOverlappingAnchors(merged_coords, merged_trajs, finalTrajmin5, search_radius, LOC_ACC, POINT_DENSITY );
+[anchor_coords_1, anchor_trajs_1] = SlowMergeOverlappingAnchors(merged_coords, merged_trajs, finalTrajmin5, search_radius, LOC_ACC, POINT_DENSITY, min_points );
 
 end
 

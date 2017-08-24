@@ -1,16 +1,21 @@
-function [ first_last_anchor_frames ] = anchorDuration( finalTraj, trajs )
+function [ anchor_duration ] = anchorDuration( finalTraj, anchored_trajs, SEARCH_RADIUS, MIN_POINTS )
+% Trajectory by trajectory anchor duration
 
-% THIS FUNCTION USED TO BE THE LAST STEP IN combineAnchors.m
+anchor_duration = zeros(1,sum(cellfun(@numel,anchored_trajs)));
+counter = 1;
+for anchor = 1:numel(anchored_trajs)
+    for traj = 1:numel(anchored_trajs{anchor})
+        [clustered_idx, ~] = dbscan(finalTraj{anchored_trajs{anchor}(traj)}(:,1:2),SEARCH_RADIUS,MIN_POINTS);
+        anchored_idx = find(clustered_idx ~= 0);
+        if ~isempty(anchored_idx)
+            anchor_duration(counter) = max(anchored_idx) - min(anchored_idx) + 1;
+            counter = counter + 1;
+        end
+    end
+end
 
-% 7. Find anchor duration for anchors with more than one anchored
-% trajectory
+anchor_duration = anchor_duration(anchor_duration>0);
 
-% Find anchor duration. Get the starting and the ending frame numbers for
-% all of the trajectories in each anchor
-anchor_frames = frameNumbers(trajs, finalTraj);
-
-% Get the first and last frames for all of the anchors
-first_last_anchor_frames = firstLastFrame(anchor_frames);
 end
 
 % Get the starting and the ending frame numbers for all of the trajectories in each anchor

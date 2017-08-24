@@ -11,9 +11,9 @@ function array_with_duplicate_rows = removeDuplicateRows(array_with_duplicate_ro
             % comparing length
             % If two rows are identical, they should have the same length
             duplicate_row = array_with_duplicate_rows{current_row(j)};
-            if length(current_row) == length(duplicate_row)
+            if numel(current_row) == numel(duplicate_row)
                 % Check here to see if the two rows have identical elements
-                if sum(ismember(current_row, duplicate_row)) == length(current_row) && sum(ismember(duplicate_row, current_row)) ==  length(duplicate_row)
+                if isequal(sort(current_row), sort(duplicate_row))
                     % Delete the second duplicated row
                     array_with_duplicate_rows{current_row(j)}=[];
                 end

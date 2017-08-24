@@ -1,4 +1,4 @@
-function [ min_max_finalTraj ] = min_max_traj_length( finalTraj, minLength, maxLength )
+function [ min_max_finalTraj ] = minmaxtrajlength( finalTraj, minLength, maxLength )
 %UNTITLED6 Summary of this function goes here
 %   Detailed explanation goes here
 min_max_finalTraj={};

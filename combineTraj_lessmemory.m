@@ -57,8 +57,9 @@ while length(unique(mergedTraj(:,1))) ~= length(mergedTraj(:,1))
     for g=1:length(invalid_trajectories)
         finalTraj{invalid_trajectories(g)}=[];
     end
-    mergedTraj(index,:)=[];
+    mergedTraj = mergedTraj(~index, :);
 end
+
 % Can't have 2 different trajectories being merged to the same trajectory
 while length(unique(mergedTraj(:,2))) ~= length(mergedTraj(:,2))
     disp('Multiple trajectories are trying to be merged into a single trajectory')
@@ -71,8 +72,17 @@ while length(unique(mergedTraj(:,2))) ~= length(mergedTraj(:,2))
     for h=1:length(invalid_trajectories)
         finalTraj{invalid_trajectories(h)}=[];
     end
-    mergedTraj(index,:)=[];
+    mergedTraj = mergedTraj(~index, :);
 end
+
+% Have to get rid of empty trajectories trajectories from mergedTraj list
+% (if [a b ; b c], and 1st line was deleted, b is empty, so need to delete
+% the 2nd line)
+deleted_trajs = find(cellfun(@(x) isempty(x), finalTraj) ~= 0);
+idx1 = ismember(mergedTraj(:, 1), deleted_trajs) > 0;
+mergedTraj = mergedTraj(~idx1, :);
+idx2 = ismember(mergedTraj(:, 2), deleted_trajs) > 0;
+mergedTraj = mergedTraj(~idx2, :);
 
 % Find more than 2 trajectories merging together (a & b, b & c = a & b & c)
 mergeMultTraj={};

@@ -1,4 +1,4 @@
-function [ slow_immobile_coords, slow_immobile_trajs, immobile_coords ] = findImmobileAnchors( finalTrajmin5, LOC_ACC, POINT_DENSITY, SEARCH_RADIUS )
+function [ slow_immobile_coords, slow_immobile_trajs, immobile_coords ] = findImmobileAnchors( finalTrajmin5, LOC_ACC, POINT_DENSITY, SEARCH_RADIUS, MIN_POINTS )
 % Summary: finds the immobile anchors by merging immobile spots by
 % localization accuracy radius circles
 
@@ -63,8 +63,8 @@ function [ slow_immobile_coords, slow_immobile_trajs, immobile_coords ] = findIm
         pre_anchor_trajs{spot_idx} = unique(immobile_coords(pre_anchor_spots{spot_idx},1))';
     end
     
-    [fast_immobile_coords, fast_immobile_trajs] = FastMergeOverlappingAnchors(pre_anchor_coords,pre_anchor_trajs,finalTrajmin5,SEARCH_RADIUS,LOC_ACC,POINT_DENSITY);
-    [slow_immobile_coords, slow_immobile_trajs] = SlowMergeOverlappingAnchors(fast_immobile_coords,fast_immobile_trajs,finalTrajmin5,SEARCH_RADIUS,LOC_ACC,POINT_DENSITY);
+    [fast_immobile_coords, fast_immobile_trajs] = FastMergeOverlappingAnchors(pre_anchor_coords,pre_anchor_trajs,finalTrajmin5,SEARCH_RADIUS,LOC_ACC,POINT_DENSITY, MIN_POINTS);
+    [slow_immobile_coords, slow_immobile_trajs] = SlowMergeOverlappingAnchors(fast_immobile_coords,fast_immobile_trajs,finalTrajmin5,SEARCH_RADIUS,LOC_ACC,POINT_DENSITY, MIN_POINTS);
     
     % Find anchors here
 %     anchored_spots = mergeImmobileSpots(neighboring_spots, localization_acc, immobile_coords(:,4:5));

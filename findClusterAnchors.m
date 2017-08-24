@@ -1,4 +1,4 @@
-function [ slow_cluster_coords, slow_cluster_trajs ] = findClusterAnchors( finalTrajmin5, LOC_ACC, POINT_DENSITY, SEARCH_RADIUS )
+function [ slow_cluster_coords, slow_cluster_trajs ] = findClusterAnchors( finalTrajmin5, LOC_ACC, POINT_DENSITY, SEARCH_RADIUS, MIN_POINTS )
 % Summary: finds the cluster anchors by merging trajectory centroids by
 % localization accuracy radius circles
 
@@ -47,8 +47,8 @@ function [ slow_cluster_coords, slow_cluster_trajs ] = findClusterAnchors( final
     pre_anchor_trajs = filterTraj(neighboring_traj, 2);
     pre_anchor_coords = findClusterAnchorCoord(pre_anchor_trajs, center_coords);
     
-    [fast_cluster_coords, fast_cluster_trajs] = FastMergeOverlappingAnchors(pre_anchor_coords,pre_anchor_trajs,finalTrajmin5,SEARCH_RADIUS,LOC_ACC,POINT_DENSITY);
-    [slow_cluster_coords, slow_cluster_trajs] = SlowMergeOverlappingAnchors(fast_cluster_coords,fast_cluster_trajs,finalTrajmin5,SEARCH_RADIUS,LOC_ACC,POINT_DENSITY);
+    [fast_cluster_coords, fast_cluster_trajs] = FastMergeOverlappingAnchors(pre_anchor_coords,pre_anchor_trajs,finalTrajmin5,SEARCH_RADIUS,LOC_ACC,POINT_DENSITY, MIN_POINTS);
+    [slow_cluster_coords, slow_cluster_trajs] = SlowMergeOverlappingAnchors(fast_cluster_coords,fast_cluster_trajs,finalTrajmin5,SEARCH_RADIUS,LOC_ACC,POINT_DENSITY, MIN_POINTS);
 
     % Find anchors here
 %     anchored_traj = mergeClusterAnchors(neighboring_traj, localization_acc, center_coords);
