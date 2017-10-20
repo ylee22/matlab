@@ -75,8 +75,8 @@ for anchor = 1:length(new_anchor_trajs)
     end
     
     if ~isempty(radius_coord)
-        % 5 columns: [radius, x, y, dbscan cluster ID]
-        anchor_coords = cat(1, anchor_coords,radius_coord);
+        % 4 columns: [radius, x, y, frames in anchor]
+        anchor_coords = cat(1, anchor_coords, radius_coord);
 
         % holds trajectories (finalTrajmin5 row number)
         anchor_trajs = cat(2, anchor_trajs, trajs);

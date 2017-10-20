@@ -56,12 +56,21 @@ end
 if ~isempty(merged_coords)
     % Merge overlapping anchors and finalize anchors
     [separate_coords, separate_trajs, overlapping_anchors, overlapping_trajs ] = SlowMergeOverlappingAnchors(merged_coords, merged_trajs, finalTrajmin5, search_radius, LOC_ACC, POINT_DENSITY, MIN_POINTS, min_fraction );
-
+    
     % Check for potential overlapping between overlapping but separate anchors
     % and the rest of the anchors
+    
+    if ~isempty(separate_coords) && ~isempty(overlapping_anchors)
+        % Sometimes you get duplicate in 
+        [~, b, ~]=intersect(separate_coords(:,1:3), overlapping_anchors(:,1:3),'rows');
+        if ~isempty(b)
+            separate_coords(b,:)=[];
+            separate_trajs(b) = [];
+        end
+    end
 
     [anchor_coords, anchor_trajs] = MergeBetweenGroupAnchors(separate_coords, separate_trajs, overlapping_anchors, overlapping_trajs, finalTrajmin5, search_radius, LOC_ACC, POINT_DENSITY, MIN_POINTS, min_fraction );
-
+    
     [final_anchor_coords, final_anchor_trajs] = fixEncompassingAnchors(anchor_coords, anchor_trajs);
 else
     final_anchor_coords = merged_coords;

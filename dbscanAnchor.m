@@ -11,6 +11,7 @@ final_anchor = [];
 final_trajs = [];
 
 while ~isempty(failed_trajs)
+    failed_trajs
     
     % find the anchored coords
     if size(failed_trajs, 1) == 1
@@ -73,7 +74,8 @@ while ~isempty(failed_trajs)
             for anchor = 1:size(radius_and_coords, 1)
                 curr_coords = combined_coords{failed_trajs(i, 1)};
                 inside = pdist2(radius_and_coords(anchor, 2:3), curr_coords) <= radius_and_coords(anchor, 1);
-                if sum(inside) < min(floor(min_points/2), ceil(size(curr_coords, 1)/2))
+%                 if sum(inside) < min(floor(min_points/2), ceil(size(curr_coords, 1)/2))
+                if sum(inside) < ABS_MIN_POINTS
                     % if a trajectory is not in the anchor, remove it
                     temp_final_trajs{anchor} = temp_final_trajs{anchor}(temp_final_trajs{anchor} ~= failed_trajs(i, 2));
                     removed_counter = removed_counter + 1;
@@ -91,7 +93,9 @@ while ~isempty(failed_trajs)
     % if an anchor was found but all of the trajectories don't have enough
     % points inside the anchor, it results in an infinite loop
     if ~isempty(radius_and_coords) && size(failed_trajs, 1) == size(temp_failed_trajs, 1)
-        search_radius = search_radius + 1;
+        final_anchor = [final_anchor; radius_and_coords];
+        final_trajs = [final_trajs failed_trajs(:,2)'];
+        failed_trajs = [];
     else
         failed_trajs = temp_failed_trajs;
         final_anchor = [final_anchor; radius_and_coords];

@@ -10,7 +10,7 @@ for i = 1:numel(anchor_trajs)
     dist = pdist2(curr_anchor(2:3), other_anchors(:, 2:3));
     
     % find overlapping
-    overlap_idx = dist<curr_anchor(1);
+    overlap_idx = dist < curr_anchor(1)*.8;
     
     if sum(overlap_idx) > 0
         % add the trajectory and remove the anchor
