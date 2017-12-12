@@ -1,46 +1,14 @@
-function [ all_anchors, all_trajs ] = MergeBetweenGroupAnchors(separate_coords, separate_trajs, overlapping_coords, overlapping_trajs, finalTrajmin5, SEARCH_RADIUS, LOC_ACC, POINT_DENSITY, ABS_MIN_POINTS, min_fraction )
+function [ all_anchors, all_trajs ] = MergeBetweenGroupAnchors_old(separate_coords, separate_trajs, overlapping_coords, overlapping_trajs, finalTrajmin5, SEARCH_RADIUS, LOC_ACC, POINT_DENSITY, ABS_MIN_POINTS, min_fraction )
 
 all_trajs = cat(2, separate_trajs, overlapping_trajs);
 separate_coords = [separate_coords zeros(size(separate_coords, 1), 1)];
 all_anchors = cat(1, separate_coords, overlapping_coords);
-
-% find and get rid of duplicates
-if size(unique(all_anchors(:,1:3), 'rows'), 1) ~= size(all_anchors,1)
-    [~, ind] = unique(all_anchors(:,1:3), 'rows');
-    % get rid of the duplicate
-    all_anchors = all_anchors(ind, :);
-    all_trajs = all_trajs(ind);
-end
-
-% index of its location in the master array
 all_anchors = [all_anchors (1:size(all_anchors, 1))'];
-
 counter = 0;
-number_overlapping = 1:10;
 
 while sum(all_anchors(:, 5) > 0) > 0
-    
-    counter = counter + 1;
-    
-    % if it's stuck in a forever loop (there are 2 anchors that keep on
-    % going back and forth), break, it's done anyway
-    if numel(unique(number_overlapping)) == 1
-        break
-    end
-    
-    FirstAnchoredFrame( all_anchors(~cellfun(@isempty, all_trajs), 1:4), all_trajs(~cellfun(@isempty, all_trajs)), finalTrajmin5 );
-    
-    % find and get rid of duplicates
-    if size(unique(all_anchors(:,1:3), 'rows'), 1) ~= size(all_anchors,1)
-        [~, ind] = unique(all_anchors(:,1:3), 'rows');
-        % get rid of the duplicate
-        all_anchors = all_anchors(ind, :);
-        all_trajs = all_trajs(ind);
-        % re-index of its location in the master array
-        all_anchors(:,end) = (1:size(all_anchors, 1))';
-    end
-    
-    number_overlapping(mod(counter, 10)+1) = sum(all_anchors(:, 5) > 0);
+
+    number_overlapping = sum(all_anchors(:, 5) > 0);
     
     idx = all_anchors(:, 5) > 0;
     overlapping_coords = all_anchors(idx, :);
@@ -67,54 +35,83 @@ while sum(all_anchors(:, 5) > 0) > 0
     dist = pdist2(curr_anchor(2:3), other_anchors(:, 2:3));
     closest = find(dist==min(dist));
     
-    % calculate overlapping area
-    d = dist(closest);
-    r1 = curr_anchor(1);
-    r2 = other_anchors(closest, 1);
-    A = (d^2 + r1^2 - r2^2) / (2 * d * r1);
-    B = (d^2 + r2^2 - r1^2) / (2 * d * r2);
-    C = (-d + r1 + r2) * (d + r1 - r2) * (d - r1 + r2) * (d + r1 + r2);
-    area = r1^2*acos(A) + r2^2*acos(B) - 1/2*sqrt(C);
-    
-    % if one is encompassing the other
-    if area/(pi*r1^2) > 0.9 && area/(pi*r1^2) > area/(pi*r2^2)
-        
-        % since these are basically the same anchors, give new group if
-        % necessary
-        if sum(all_anchors(:,5)==all_anchors(other_anchors(closest,end), 5)) < sum(all_anchors(:,5)==all_anchors(curr_anchor(end), 5))
-            all_anchors(other_anchors(closest, end), 5) = all_anchors(curr_anchor(end), 5);
-        end
-        
-        % add smaller anchor traj to the larger
-        all_trajs{other_anchors(closest, end)} = cat(2, all_trajs{other_anchors(closest, end)}, all_trajs{curr_anchor(end)});
-
-        % delete the old coords and trajs
-        all_anchors(curr_anchor(end), :) = NaN;
-        all_trajs{curr_anchor(end)} = [];
-        
-        if size(all_anchors, 1) ~= length(all_trajs)
-            error('final coords and trajs do not match')
-        end
-        
-    elseif area/(pi*r2^2) > 0.9 && area/(pi*r1^2) < area/(pi*r2^2)
-
-        % since these are basically the same anchors, give new group if
-        % necessary
-        if sum(all_anchors(:,5)==all_anchors(other_anchors(closest,end), 5)) > sum(all_anchors(:,5)==all_anchors(curr_anchor(end), 5))
-            all_anchors(curr_anchor(end), 5) = all_anchors(other_anchors(closest, end), 5);
-        end
-        
-        % add smaller anchor traj to the larger
-        all_trajs{curr_anchor(end)} = cat(2, all_trajs{curr_anchor(end)}, all_trajs{other_anchors(closest, end)});
-
-        % delete the old coords and trajs
+    while isequal(curr_trajs, other_trajs{closest})
+        % get rid of the duplicate 0
         all_anchors(other_anchors(closest, end), :) = NaN;
         all_trajs{other_anchors(closest, end)} = [];
-        
-        if size(all_anchors, 1) ~= length(all_trajs)
-            error('final coords and trajs do not match')
-        end
+        dist(closest) = max(dist);
+        % fine next closest
+        closest = find(dist==min(dist));
+    end
     
+    % if one is encompassing the other
+    if pdist2(curr_anchor(2:3), other_anchors(closest, 2:3)) < max(curr_anchor(1),other_anchors(closest, 1))
+        % merge free into group: have to check for actual number of members
+        % because groups get broken apart if they get remade (see next
+        % condition)
+        if curr_anchor(5) > 0 && sum(all_anchors(:, 5) == curr_anchor(5)) > 1 && (other_anchors(closest, 5) == 0 || sum(all_anchors(:, 5) == other_anchors(closest, 5)) == 1)
+            % add smaller anchor traj to the larger
+            all_trajs{curr_anchor(end)} = cat(2, all_trajs{curr_anchor(end)}, all_trajs{other_anchors(closest, end)});
+            
+            % delete the old coords and trajs
+            all_anchors(other_anchors(closest, end), :) = NaN;
+            all_trajs{other_anchors(closest, end)} = [];
+
+            if size(all_anchors, 1) ~= length(all_trajs)
+                error('final coords and trajs do not match')
+            end
+        elseif (curr_anchor(5) == 0 || sum(all_anchors(:, 5) == curr_anchor(5)) == 1) && other_anchors(closest, 5) > 0 && sum(all_anchors(:, 5) == other_anchors(closest, 5)) > 1
+            % add smaller anchor traj to the larger
+            all_trajs{other_anchors(closest, end)} = cat(2, all_trajs{other_anchors(closest, end)}, all_trajs{curr_anchor(end)});
+            
+            % delete the old coords and trajs
+            all_anchors(curr_anchor(end), :) = NaN;
+            all_trajs{curr_anchor(end)} = [];
+
+            if size(all_anchors, 1) ~= length(all_trajs)
+                error('final coords and trajs do not match')
+            end
+        % if both are free or both are in groups, merge smaller into the bigger
+        % free + free = 0, group + group = all new group
+        elseif curr_anchor(1) > other_anchors(closest, 1)
+            % if they're both in groups, then change group IDs for all members
+            if curr_anchor(5) + other_anchors(closest, 5) > 0
+                % make a new group
+                max_group = max_group + 1;
+                all_anchors(all_anchors(:,5) == curr_anchor(5), 5) = max_group;
+                all_anchors(all_anchors(:,5) == other_anchors(closest, 5), 5) = max_group;
+            end
+            
+            % add smaller anchor traj to the larger
+            all_trajs{curr_anchor(end)} = cat(2, all_trajs{curr_anchor(end)}, all_trajs{other_anchors(closest, end)});
+            
+            % delete the old coords and trajs
+            all_anchors(other_anchors(closest, end), :) = NaN;
+            all_trajs{other_anchors(closest, end)} = [];
+
+            if size(all_anchors, 1) ~= length(all_trajs)
+                error('final coords and trajs do not match')
+            end
+        else
+            % if they're both in groups, then change group IDs for all members
+            if curr_anchor(5) + other_anchors(closest, 5) > 0
+                % make a new group
+                max_group = max_group + 1;
+                all_anchors(all_anchors(:,5) == curr_anchor(5), 5) = max_group;
+                all_anchors(all_anchors(:,5) == other_anchors(closest, 5), 5) = max_group;
+            end
+            
+            % add smaller anchor traj to the larger
+            all_trajs{other_anchors(closest, end)} = cat(2, all_trajs{other_anchors(closest, end)}, all_trajs{curr_anchor(end)});
+            
+            % delete the old coords and trajs
+            all_anchors(curr_anchor(end), :) = NaN;
+            all_trajs{curr_anchor(end)} = [];
+
+            if size(all_anchors, 1) ~= length(all_trajs)
+                error('final coords and trajs do not match')
+            end
+        end
     % if they are overlapping, then merge them
     elseif curr_anchor(1) + other_anchors(closest, 1) > dist(closest)
 
@@ -139,18 +136,16 @@ while sum(all_anchors(:, 5) > 0) > 0
             end
         end
 
-        % if it's the same, don't check it in the future
+        % if it's the same, don't run it next time
         if isempty(anchor_coords)
-            all_anchors(curr_anchor(end), 5) = -1;
+            all_anchors(curr_anchor(end), 5) = 0;
 
-        % if input is exactly the same as output, don't check it in the
-        % future
-        elseif sum(diag(pdist2(anchor_coords(:, 1:3), [curr_anchor(1:3); other_anchors(closest, 1:3)])) < 20) == size(anchor_coords, 1)
-            all_anchors(curr_anchor(end), 5) = -1;
+        % if input is exactly the same as output
+        elseif isequal(cellfun(@sort, anchor_trajs, 'UniformOutput', false), {sort(curr_trajs), sort(other_trajs{closest})}) || isequal(cellfun(@sort, anchor_trajs, 'UniformOutput', false), {sort(other_trajs{closest}), sort(curr_trajs)})
+            all_anchors(curr_anchor(end), 5) = 0;
 
         % if it's 2 different anchors
         elseif size(anchor_coords, 1) > 1
-            
             % make a new group
             max_group = max_group + 1;
 
@@ -170,7 +165,6 @@ while sum(all_anchors(:, 5) > 0) > 0
 
         % add it to this list will check for overlaps
         elseif size(anchor_coords, 1) == 1 && other_anchors(closest, 5) == 0
-            
             max_group = max_group + 1;
             last_idx = size(all_anchors, 1);
             all_anchors = cat(1, all_anchors, [anchor_coords max_group last_idx + 1]);
@@ -188,7 +182,6 @@ while sum(all_anchors(:, 5) > 0) > 0
 
         % all the involved trajectories get a new group
         elseif size(anchor_coords, 1) == 1 && other_anchors(closest, 5) > 0
-            
             max_group = max_group + 1;
             % all involved groups get the same group ID
             all_anchors(all_anchors(:,5) == curr_anchor(5), 5) = max_group;
@@ -220,6 +213,16 @@ while sum(all_anchors(:, 5) > 0) > 0
 
     end
     
+    % number of overlapping anchors should be decreasing not increasing
+    if sum(all_anchors(:, 5) > 0) > number_overlapping
+        counter = counter + 1;
+        if counter > 3
+            error('stuck in forever loop')
+        end
+    else
+        counter = 0;
+    end
+
 end
 
 % filter out the deleted trajs

@@ -10,13 +10,13 @@ for i = 1:numel(anchor_trajs)
     dist = pdist2(curr_anchor(2:3), other_anchors(:, 2:3));
     
     % find overlapping
-    overlap_idx = dist < curr_anchor(1);
+    overlaps = find(dist < curr_anchor(1));
     
-    if sum(overlap_idx) > 0
+    for o = 1:numel(overlaps)
         % calculate overlapping area
-        d = dist(overlap_idx);
+        d = dist(overlaps(o));
         r2 = curr_anchor(1);
-        r1 = other_anchors(overlap_idx, 1);
+        r1 = other_anchors(overlaps(o), 1);
         A = (d^2 + r1^2 - r2^2) / (2 * d * r1);
         B = (d^2 + r2^2 - r1^2) / (2 * d * r2);
         C = (-d + r1 + r2) * (d + r1 - r2) * (d - r1 + r2) * (d + r1 + r2);
@@ -24,13 +24,10 @@ for i = 1:numel(anchor_trajs)
 
         % if the overlapping area is a certain fraction of the total
         % smaller anchor area
-        if area/(pi*r1^2) > 0.75
+        if area/(pi*r1^2) > 0.9
             % add the trajectory and remove the anchor
-            anchor_trajs{i} = [anchor_trajs{i} anchor_trajs{overlap_idx}];
-            overlap_idx = find(overlap_idx==1);
-            for j = 1:numel(overlap_idx)
-                anchor_trajs{overlap_idx(j)} = [];
-            end
+            anchor_trajs{i} = [anchor_trajs{i} anchor_trajs{overlaps(o)}];
+            anchor_trajs{overlaps(o)} = [];
         end
     end
 

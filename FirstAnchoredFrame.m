@@ -19,7 +19,10 @@ for i = 1:length(mult_trajs)
     for j = 1:length(trajs)
         curr_traj = trajs(j);
         inside = pdist2(curr_anchor(2:3), finalTrajmin5{curr_traj}(:, 1:2)) <= anchor_radius;
+        % for experimental data
         temp_duration(j,:) = [min(finalTrajmin5{curr_traj}(inside, end-2)) max(finalTrajmin5{curr_traj}(inside, end-2))];
+        % for simulated data
+%         temp_duration(j,:) = [min(finalTrajmin5{curr_traj}(inside, end)) max(finalTrajmin5{curr_traj}(inside, end))];
     end
     first_anchored_frame{i} = temp_duration;
 end

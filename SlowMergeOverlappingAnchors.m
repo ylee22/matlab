@@ -89,7 +89,7 @@ while DUPLICATE_MARKER && numel(final_trajs) > 1
             end
             
              % check to see if one is actually encompassed in the other
-            if numel(anchor_trajs) > 1
+            if size(anchor_coords, 1) > 1
                 [r, c] = find(triu(squareform(pdist(anchor_coords(:,2:3)))) == min(pdist(anchor_coords(:,2:3))));
 
                 if min(pdist(anchor_coords(:,2:3))) < max(anchor_coords([r, c], 1))

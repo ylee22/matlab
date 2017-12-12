@@ -1,7 +1,4 @@
 function [ final_anchor, final_trajs ] = dbscanAnchor( search_radius, LOC_ACC, GLOBAL_DENSITY, combined_coords, anchored_trajs, ABS_MIN_POINTS, min_fraction )
-%UNTITLED4 Summary of this function goes here
-%   Detailed explanation goes here
-
 % make anchored coords from combined_coords from failed trajs
 % find anchors with dbscan
 % find failed trajs
@@ -10,8 +7,15 @@ failed_trajs = [1:numel(anchored_trajs); anchored_trajs]';
 final_anchor = [];
 final_trajs = [];
 
+counter = 0;
+
 while ~isempty(failed_trajs)
-    failed_trajs
+    
+    counter = counter + 1;
+    
+    if counter > 100
+        error('stuck in while loop')
+    end
     
     % find the anchored coords
     if size(failed_trajs, 1) == 1
@@ -27,7 +31,11 @@ while ~isempty(failed_trajs)
     end
     
     % find min points here
-    min_points = max(floor(size(anchored_coords, 1)/min_fraction), ABS_MIN_POINTS);
+%     area = pi*max(pdist2(mean(anchored_coords), anchored_coords))^2;
+%     density = size(anchored_coords, 1)/area;
+%     expected_number_of_points = poissinv(0.95, ceil(density*pi*search_radius^2));
+%     min_points = max(min(floor(size(anchored_coords, 1)/min_fraction), expected_number_of_points), ABS_MIN_POINTS);
+    min_points = min(max(floor(size(anchored_coords, 1)/min_fraction), ABS_MIN_POINTS), 100);
     
     % DBSCAN to find clusters/anchors
     [IDX, ~] = dbscan(anchored_coords, search_radius, min_points);
@@ -74,8 +82,11 @@ while ~isempty(failed_trajs)
             for anchor = 1:size(radius_and_coords, 1)
                 curr_coords = combined_coords{failed_trajs(i, 1)};
                 inside = pdist2(radius_and_coords(anchor, 2:3), curr_coords) <= radius_and_coords(anchor, 1);
-%                 if sum(inside) < min(floor(min_points/2), ceil(size(curr_coords, 1)/2))
-                if sum(inside) < ABS_MIN_POINTS
+                traj_center_inside = pdist2(radius_and_coords(anchor, 2:3), mean(curr_coords)) <= radius_and_coords(anchor, 1);
+                % if an anchored traj center isn't inside the anchor and
+                % doesn't spend minimum number of frames inside, it's not
+                % anchored
+                if sum(inside) < ABS_MIN_POINTS && ~(sum(inside) > 2 && traj_center_inside)
                     % if a trajectory is not in the anchor, remove it
                     temp_final_trajs{anchor} = temp_final_trajs{anchor}(temp_final_trajs{anchor} ~= failed_trajs(i, 2));
                     removed_counter = removed_counter + 1;
@@ -92,14 +103,16 @@ while ~isempty(failed_trajs)
 
     % if an anchor was found but all of the trajectories don't have enough
     % points inside the anchor, it results in an infinite loop
-    if ~isempty(radius_and_coords) && size(failed_trajs, 1) == size(temp_failed_trajs, 1)
-        final_anchor = [final_anchor; radius_and_coords];
-        final_trajs = [final_trajs failed_trajs(:,2)'];
+    if size(radius_and_coords, 1) == 1 && size(failed_trajs, 1) == size(temp_failed_trajs, 1)
         failed_trajs = [];
+    % multiple anchors found and none of the trajectories used to define
+    % the anchor pass
+    elseif size(radius_and_coords, 1) > 1 && size(failed_trajs, 1) == size(temp_failed_trajs, 1)
+        search_radius = search_radius + 1;
     else
         failed_trajs = temp_failed_trajs;
-        final_anchor = [final_anchor; radius_and_coords];
-        final_trajs = [final_trajs temp_final_trajs];
+        final_anchor = [final_anchor; radius_and_coords(~cellfun(@isempty, temp_final_trajs),:)];
+        final_trajs = [final_trajs temp_final_trajs(~cellfun(@isempty, temp_final_trajs))];
     end
     
 end
