@@ -6,16 +6,31 @@ function [ movie_frame ] = singleAnchorMovie( totalTraj, anchoredTraj, anchor_ra
 %   all of the trajectories for the movie)
 figure
 
+% calculate the x and y limits for the movie
+all_coords = [];
+for index = 1:length(anchoredTraj)
+    all_coords = cat(1,all_coords,totalTraj{anchoredTraj(index)});    
+end
+max_x = max(all_coords(:,1));
+min_x = min(all_coords(:,1));
+max_y = max(all_coords(:,2));
+min_y = min(all_coords(:,2));
+
+% Draw the anchor
 ang=0:0.01:2*pi;
 xp=anchor_radius*cos(ang)+anchor_coord(1);
 yp=anchor_radius*sin(ang)+anchor_coord(2);
 plot(xp,yp,'LineWidth',2,'Color','k')
 
-axis manual
-axis([10300 11000 5700 6250])
+xlabel('First and last frame numbers for each trajectory (20 ms frame rate)')
 
-xlabel('First and last frame numbers for each trajectory (20 ms frame rate)');
 hold on;
+
+out_of_bounds_x = max([abs(max_x-max(xp)),abs(min_x-min(xp))]);
+out_of_bounds_y = max([abs(max_y-max(yp)),abs(min_y-min(yp))]);
+
+xlim([min(xp)-out_of_bounds_x*1.05 max(xp)+100]);
+ylim([min(yp)-out_of_bounds_y*1.05 max(yp)+200]);
 
 % Acquire movie
 tot_frames=0;
@@ -43,3 +58,4 @@ end
 
 end
 
+% Use movie2avi function to convert the images to an avi file
