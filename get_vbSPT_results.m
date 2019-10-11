@@ -1,4 +1,6 @@
-function [ diff_mean, diff_std, occupancy, spaths, posterior_tp_mean, posterior_tp_std, bootstrap_tp_mean, bootstrap_tp_std, model_fit ] = get_vbSPT_results( start_path, runinput, modelsize )
+function [ diff_mean, diff_std, occupancy, spaths, posterior_tp_mean, ...
+    posterior_tp_std, bootstrap_tp_mean, bootstrap_tp_std, model_fit, dwellTime ] ...
+    = get_vbSPT_results( start_path, runinput, modelsize )
 % extract states from vbSPT
 
 cd(start_path)
@@ -33,6 +35,7 @@ catch me
         bootstrap_tp_mean = [];
         bootstrap_tp_std = [];
         model_fit = [];
+        dwellTime = [];
         return 
     end
 end
@@ -40,6 +43,7 @@ end
 
 %% get diff coeff, occupancy, transition matrix
 
+timeStep = res.options.timestep;
 model_fit = res.dF;
 if modelsize == 0
     diff_mean = res.Wbest.est.DdtMean/opt.timestep;
@@ -48,8 +52,14 @@ if modelsize == 0
     spaths = res.Wbest.est2.sMaxP;
     posterior_tp_mean = res.Wbest.est.Amean;
     posterior_tp_std = res.Wbest.est.Astd;
-    bootstrap_tp_std = 0; %res.bootstrap.Wstd.est.Amean;
-    bootstrap_tp_mean = 0; % res.bootstrap.Wmean.est.Amean;
+    dwellTime = res.Wbest.est.dwellMean'*timeStep;     % Mean dwelltime in each state
+    if isfield(res, 'bootstrap')
+        bootstrap_tp_std = res.bootstrap.Wstd.est.Amean;
+        bootstrap_tp_mean = res.bootstrap.Wmean.est.Amean;
+    else
+        bootstrap_tp_std = [];
+        bootstrap_tp_mean = [];
+    end
 else
     diff_mean = res.WbestN{modelsize}.est.DdtMean/opt.timestep;
     diff_std = res.WbestN{modelsize}.est.Ddtstd/opt.timestep;
@@ -58,6 +68,7 @@ else
     posterior_tp_std = res.WbestN{modelsize}.est.Astd;
     bootstrap_tp_std = res.bootstrap.WstdN(modelsize).est.Amean;
     bootstrap_tp_mean = res.bootstrap.WmeanN(modelsize).est.Amean;
+    dwellTime = res.WbestN{modelsize}.est.dwellMean'*timeStep;     % Mean dwelltime in each state
     if isfield(res.WbestN{modelsize}, 'est2')
         spaths = res.WbestN{modelsize}.est2.sMaxP;
     else
